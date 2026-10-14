@@ -41,6 +41,8 @@ function save(){localStorage.setItem(LS,JSON.stringify(S));}
 let S=load()||{era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[],outcomes:[],selScenario:null,activePredrop:null};
 if(!Array.isArray(S.outcomes))S.outcomes=[];
 S.dates.forEach(g=>{if(g.mode!=='TW'&&g.mode!=='AS')g.mode=S.mode||'TW'});
+S.brigades.forEach(b=>{if(!Array.isArray(b.memorial))b.memorial=[]});
+S.outcomes.forEach(o=>{const b=S.brigades.find(x=>x.id===o.brigadeId);if(!b)return;(o.rows||[]).filter(r=>r.dead).forEach(r=>{if(!b.memorial.some(m=>m.name===r.name&&m.scen===o.scenarioId))b.memorial.push({name:r.name,g:r.g,p:r.p,mech:r.mechName,date:o.dateStr,scen:o.scenarioId,title:o.scenarioTitle})})});
 // Effective rules mode: a game date's own TW/AS setting wins; global mode is the fallback.
 function dateMode(gid){const g=S.dates.find(x=>x.id===gid);return (g&&g.mode)||S.mode||'TW'}
 function scenMode(s){return s?dateMode(s.gameDateId):(S.mode||'TW')}
@@ -52,6 +54,7 @@ let OD=null,editingOutcomeId=null;
 // Original-Investment locks: read-only until unlocked; relock after 10 s idle
 const cbEdit=new Set(),cbTimers={};
 const brigEdit=new Set(); // brigade ids with name/employer in edit mode
+const memOpen=new Set(); // brigade ids with the Memorial list revealed
 const MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
 // BV skill multiplier table (Classic, simplified from TM p.315)
 function bvMult(g,p){const t={'0/0':2.1,'1/1':1.8,'2/2':1.5,'3/3':1.25,'3/4':1.15,'4/4':1.1,'4/5':1.0,'5/5':0.9,'5/6':0.8,'6/6':0.75};const k=g+'/'+p;if(t[k])return t[k];let m=1.0+(4-g)*0.2+(5-p)*0.1;return Math.max(0.5,Math.round(m*100)/100)}
@@ -115,7 +118,7 @@ renderCalendar();
 // gen date select
 const gd=document.getElementById('genDate');gd.innerHTML=S.dates.map(g=>`<option value="${g.id}">${g.date} ${g.note||''} [${g.mode||S.mode||'TW'}]</option>`).join('')||'<option value="">— add a date first —</option>'}
 // BRIGADES
-document.getElementById('addBrigBtn').onclick=()=>{const n=document.getElementById('brigName').value||'New Brigade';S.brigades.push({id:uid(),name:n,employer:document.getElementById('brigEmployer').value||'Independent',cbills:5000000,inventory:[],roster:[],active:[],dropship:true});save();renderAll()};
+document.getElementById('addBrigBtn').onclick=()=>{const n=document.getElementById('brigName').value||'New Brigade';S.brigades.push({id:uid(),name:n,employer:document.getElementById('brigEmployer').value||'Independent',cbills:5000000,inventory:[],roster:[],active:[],dropship:true,memorial:[]});save();renderAll()};
 function renderBrigs(){const el=document.getElementById('brigList');el.innerHTML='';
 S.brigades.forEach(b=>{const d=document.createElement('div');d.className='brig';
 const mechValue=b.inventory.reduce((s,m)=>s+(+m.cb||0),0);
@@ -124,7 +127,7 @@ const be=brigEdit.has(b.id),escQ=s=>String(s||'').replace(/"/g,'&quot;');
 d.innerHTML=`<div class="row">${be?`<input value="${escQ(b.name)}" data-bname="${b.id}" style="font-family:Orbitron;min-width:140px" title="Brigade name"><input value="${escQ(b.employer)}" data-bemp="${b.id}" style="min-width:140px" title="Employer">`:`<b style="font-family:Orbitron">${b.name}</b><span class="pill">${b.employer}</span>`}<span>C-Bills: <input type="number" value="${b.cbills}" data-cb="${b.id}" style="width:130px" ${cbEdit.has(b.id)?'':'disabled'} title="${cbEdit.has(b.id)?'Unlocked — edits save automatically':'Locked — press 🔒 to edit'}"> <button class="btn small" data-cblock="${b.id}" title="${cbEdit.has(b.id)?'Lock':'Unlock'} C-Bills">${cbEdit.has(b.id)?'🔓':'🔒'}</button></span><span>Mechs value: <b>${mechValue.toLocaleString()} C-Bills</b></span><span>Upkeep/mo: <b>${upkeep(b).toLocaleString()} C</b></span><span>Deployed: <b>${tot.toLocaleString()} ${S.mode==='TW'?'BV':'PV'}</b></span>${be?`<button class="btn small" data-bsave="${b.id}">Save</button><button class="btn small" data-bcancel="${b.id}">Cancel</button>`:`<button class="btn small" data-bedit="${b.id}">Edit</button>`}<button class="btn small" data-del="${b.id}">Delete</button></div>
 <div class="grid2"><div><h4>Inventory (Mechs) <span class="hint">${MECHS.length.toLocaleString()} available</span></h4><div class="row"><input placeholder="🔍 Search ${MECHS.length.toLocaleString()} mechs…" data-msearch="${b.id}" style="flex:1;min-width:140px"><button class="btn small" data-addm="${b.id}">+ Add selected</button></div><div class="row"><select data-msel="${b.id}" style="width:100%">${MECHS.slice(0,50).map(m=>`<option value="${m.n}">${m.ico} ${m.n} — ${val(m)}${m.yr?' · '+m.yr:''}${m.rl&&m.rl!=='None'?' · '+m.rl:''}</option>`).join('')}</select></div><table><tr><th></th><th>Mech</th><th>Role</th><th>${S.mode==='TW'?'BV @4/5':'PV'}</th><th>C-Bills</th><th>Era</th><th></th></tr>${b.inventory.map(m=>`<tr><td class="mech-ico" title="${(ROLE_LABELS[roleOf(m)]||'Role: '+roleOf(m))}${flamersOf(m)>=3?` · ${flamersOf(m)} flamers`:''}">${icoFor(roleOf(m),m.wc,flamersOf(m))}</td><td>${m.n}</td><td class="hint">${(ROLE_LABELS[roleOf(m)]||roleOf(m)||'—').replace(/\s*\(.*/,'')}${flamersOf(m)>=3?' 🔥':''}</td><td>${val(m)}</td><td>${m.cb.toLocaleString()}</td><td>${eraTag(m.yr)}</td><td><button class="btn small" data-rmm="${b.id}:${m.id}">x</button></td></tr>`).join('')}</table></div>
 <div><h4>MechWarriors</h4><div class="row"><input placeholder="Name" data-pn="${b.id}"><input placeholder="G" type="number" value="4" min="0" max="8" style="width:50px" data-pg="${b.id}"><input placeholder="P" type="number" value="5" min="0" max="8" style="width:50px" data-pp="${b.id}"><button class="btn small" data-addp="${b.id}">+ Pilot</button></div><table><tr><th>Pilot</th><th>G/P</th><th>Mod</th><th>Ticks</th><th></th></tr>${b.roster.map(p=>`<tr><td>${p.n}</td><td>${p.g}/${p.p}</td><td>x${bvMult(p.g,p.p)}</td><td>${p.ticks||0}</td><td><button class="btn small" data-rmp="${b.id}:${p.id}">x</button></td></tr>`).join('')}</table>
-<h4>Dropship Load (next game)</h4><table><tr><th>On</th><th>Mech</th><th>Pilot</th><th>Adj ${S.mode==='TW'?'BV':'PV'}</th></tr>${b.active.map((a,i)=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);const adj=m&&p?(S.mode==='TW'?adjBV(m.bv,p.g,p.p):m.pv+(pvSkill(p.g,p.p)-18)):(m?(S.mode==='TW'?m.bv:m.pv):0);return `<tr><td><input type="checkbox" ${a.on?'checked':''} data-aon="${b.id}:${i}"></td><td><select data-amech="${b.id}:${i}"><option value="">—</option>${b.inventory.map(m2=>`<option value="${m2.id}" ${m2.id===a.mech?'selected':''}>${m2.n}</option>`).join('')}</select></td><td><select data-apilot="${b.id}:${i}"><option value="">—</option>${b.roster.map(p2=>`<option value="${p2.id}" ${p2.id===a.pilot?'selected':''}>${p2.n} ${p2.g}/${p2.p}</option>`).join('')}</select></td><td>${adj.toLocaleString()}</td></tr>`}).join('')}</table><button class="btn small" data-adda="${b.id}">+ Load slot</button></div>${ocAccounting(b)}</div>`;
+<h4>Dropship Load (next game)</h4><table><tr><th>On</th><th>Mech</th><th>Pilot</th><th>Adj ${S.mode==='TW'?'BV':'PV'}</th></tr>${b.active.map((a,i)=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);const adj=m&&p?(S.mode==='TW'?adjBV(m.bv,p.g,p.p):m.pv+(pvSkill(p.g,p.p)-18)):(m?(S.mode==='TW'?m.bv:m.pv):0);return `<tr><td><input type="checkbox" ${a.on?'checked':''} data-aon="${b.id}:${i}"></td><td><select data-amech="${b.id}:${i}"><option value="">—</option>${b.inventory.map(m2=>`<option value="${m2.id}" ${m2.id===a.mech?'selected':''}>${m2.n}</option>`).join('')}</select></td><td><select data-apilot="${b.id}:${i}"><option value="">—</option>${b.roster.map(p2=>`<option value="${p2.id}" ${p2.id===a.pilot?'selected':''}>${p2.n} ${p2.g}/${p2.p}</option>`).join('')}</select></td><td>${adj.toLocaleString()}</td></tr>`}).join('')}</table><button class="btn small" data-adda="${b.id}">+ Load slot</button></div>${ocAccounting(b)}${memSection(b)}</div>`;
 el.appendChild(d)});
 // wire
 el.querySelectorAll('[data-cb]').forEach(i=>{i.onchange=()=>{S.brigades.find(b=>b.id===i.dataset.cb).cbills=+i.value;save();renderBrigs()};i.oninput=()=>{const b=S.brigades.find(x=>x.id===i.dataset.cb);if(!b||!cbEdit.has(b.id))return;b.cbills=+i.value;save();cbArm(b.id)}});
@@ -132,6 +135,7 @@ el.querySelectorAll('[data-cblock]').forEach(x=>x.onclick=()=>{const id=x.datase
 el.querySelectorAll('[data-bedit]').forEach(x=>x.onclick=()=>{brigEdit.add(x.dataset.bedit);renderBrigs();const inp=el.querySelector(`[data-bname="${x.dataset.bedit}"]`);if(inp){inp.focus();inp.select()}});
 el.querySelectorAll('[data-bsave]').forEach(x=>x.onclick=()=>{const b=S.brigades.find(v=>v.id===x.dataset.bsave);if(!b)return;const n=el.querySelector(`[data-bname="${b.id}"]`),e=el.querySelector(`[data-bemp="${b.id}"]`);if(n&&n.value.trim())b.name=n.value.trim();if(e)b.employer=e.value.trim()||'Independent';brigEdit.delete(b.id);save();renderAll();toast(`Brigade renamed to '${b.name}'`)});
 el.querySelectorAll('[data-bcancel]').forEach(x=>x.onclick=()=>{brigEdit.delete(x.dataset.bcancel);renderBrigs()});
+el.querySelectorAll('[data-mem]').forEach(x=>x.onclick=()=>{const id=x.dataset.mem;memOpen.has(id)?memOpen.delete(id):memOpen.add(id);renderBrigs()});
 el.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>{const b=S.brigades.find(v=>v.id===x.dataset.del);if(!b)return;if(!confirm(`Delete brigade '${b.name}' and all its mechs, pilots and dropship load?`))return;S.brigades=S.brigades.filter(v=>v.id!==b.id);save();renderAll()});
 el.querySelectorAll('[data-msearch]').forEach(inp=>inp.oninput=()=>{const b=S.brigades.find(v=>v.id===inp.dataset.msearch);const q=inp.value.toLowerCase().trim();const sel=el.querySelector(`[data-msel="${b.id}"]`);const hits=(q?MECHS.filter(m=>m.n.toLowerCase().includes(q)):MECHS).slice(0,100);sel.innerHTML=hits.map(m=>`<option value="${m.n.replace(/"/g,'&quot;')}">${m.ico} ${m.n} — ${val(m)}${m.yr?' · '+m.yr:''}${m.rl&&m.rl!=='None'?' · '+m.rl:''}</option>`).join('')||'<option value="">No matches</option>'});
 el.querySelectorAll('[data-addm]').forEach(x=>x.onclick=()=>{const b=S.brigades.find(v=>v.id===x.dataset.addm);const sel=el.querySelector(`[data-msel="${b.id}"]`);const m=MECHS.find(v=>v.n===sel.value)||MECHS[0];if(!m)return toast('No mech selected');const {canon,...rest}=m;b.inventory.push({id:uid(),...rest});save();renderAll();toast(`Added ${m.n}`)});
@@ -237,8 +241,9 @@ const bg=S.brigades.find(x=>x.id===oc.brigadeId);
 const applied=dir>0?{funds:{},mechs:[]}:oc.applied;
 const addFunds=(bid,amt)=>{const b=S.brigades.find(x=>x.id===bid);if(!b||!amt)return;if(dir>0)applied.funds[bid]=(applied.funds[bid]||0)+amt;b.cbills=Math.round((+b.cbills||0)+dir*amt)};
 if(bg)oc.rows.forEach(r=>{let p=bg.roster.find(x=>x.id===r.pilotId)||bg.roster.find(x=>x.n===r.name);
-if(dir>0&&r.dead){if(p)bg.roster=bg.roster.filter(x=>x!==p);return}
-if(dir<0&&r.dead&&!bg.roster.some(x=>x.n===r.name)){p={id:uid(),n:r.name,g:r.g,p:r.p};bg.roster.push(p)}
+if(dir>0&&r.dead){if(p)bg.roster=bg.roster.filter(x=>x!==p);bg.memorial=bg.memorial||[];
+if(!bg.memorial.some(m=>m.name===r.name&&m.scen===oc.scenarioId))bg.memorial.push({name:r.name,g:r.g,p:r.p,mech:r.mechName,date:oc.dateStr,scen:oc.scenarioId,title:oc.scenarioTitle});return}
+if(dir<0&&r.dead&&!bg.roster.some(x=>x.n===r.name)){p={id:uid(),n:r.name,g:r.g,p:r.p};bg.roster.push(p);bg.memorial=(bg.memorial||[]).filter(m=>!(m.name===r.name&&m.scen===oc.scenarioId))}
 if(p&&!r.dead)p.ticks=Math.max(0,(+p.ticks||0)+dir*(+r.ticks||0))});
 if(!oc.failed&&bg)addFunds(bg.id,oc.pay.filter(w=>w.awarded).reduce((s,w)=>s+(+w.amount||0),0));
 if(bg)addFunds(bg.id,-(+oc.repair||0));
@@ -304,6 +309,10 @@ return `<div class="date-row"><b>${o.scenarioTitle||'?'}</b> <span class="hint">
 <div class="row"><button class="btn small" data-ocedit="${o.id}">Edit</button><button class="btn small" data-ocdel="${o.id}">Delete</button></div></div>`}).join(''):'<p class="hint">No committed outcomes yet.</p>';
 list.querySelectorAll('[data-ocedit]').forEach(b=>b.onclick=()=>{const o=S.outcomes.find(x=>x.id===b.dataset.ocedit);if(!o)return;OD=JSON.parse(JSON.stringify(o));OD.payScen=OD.scenarioId;editingOutcomeId=o.id;save();renderOutcomes();toast(`Editing outcome for '${o.scenarioTitle}' — Commit saves, reversing the old application first`)});
 list.querySelectorAll('[data-ocdel]').forEach(b=>b.onclick=()=>{const o=S.outcomes.find(x=>x.id===b.dataset.ocdel);if(!o)return;if(!confirm(`Delete the committed outcome '${o.scenarioTitle}' for '${o.brigadeName}'? Funds, salvage and pilot changes will be reversed.`))return;applyOutcome(o,-1);S.outcomes=S.outcomes.filter(x=>x.id!==o.id);if(editingOutcomeId===o.id){editingOutcomeId=null;OD=ocNew()}save();renderAll();toast('Outcome deleted and reversed')})}
+function memSection(b){const mem=b.memorial||[];
+const btn=`<button class="btn small" data-mem="${b.id}">Memorial (${mem.length})</button>`;
+if(!memOpen.has(b.id))return btn;
+return btn+(mem.length?`<table><tr><th>🕯 Pilot</th><th>G/P</th><th>Mech</th><th>Fell at</th></tr>${mem.map(m=>`<tr><td>${m.name}</td><td>${m.g}/${m.p}</td><td>${m.mech||'—'}</td><td>${m.title||''} <span class="hint">${m.date||''}</span></td></tr>`).join('')}</table>`:'<p class="hint">🕯 No fallen pilots yet.</p>')}
 // Per-brigade accounting card for committed outcomes
 function ocAccounting(b){const ocs=S.outcomes.filter(o=>o.brigadeId===b.id||(o.salvage||[]).some(sv=>(sv.to||o.brigadeId)===b.id));
 if(!ocs.length)return '';
@@ -428,7 +437,7 @@ if(cat)mechs.push({id:uid(),n:cat.n,bv:bv!=null?Math.round(bv):cat.bv,pv:pvv!=nu
 else if(bv!=null||pvv!=null)mechs.push({id:uid(),n:nm+' '+va,bv:bv!=null?Math.round(bv):800,pv:pvv!=null?Math.round(pvv):20,cb:cb!=null?Math.round(cb):3000000,tons:null,yr:null,wc:'Medium',rl:'None',ico:icoFor('','Medium')});
 else skipped++}}}
 if(!bname&&!roster.length&&!mechs.length){toast('No brigade data recognised — skipped file');return}
-const b={id:uid(),name:bname||f.name.replace(/\.ods$/i,'')||'Imported Brigade',employer:employer||'Independent',cbills,inventory:mechs,roster,active:[],dropship:true};
+const b={id:uid(),name:bname||f.name.replace(/\.ods$/i,'')||'Imported Brigade',employer:employer||'Independent',cbills,inventory:mechs,roster,active:[],dropship:true,memorial:[]};
 S.brigades.push(b);save();renderAll();
 toast(`Imported '${b.name}': ${mechs.length} mechs, ${roster.length} pilots${skipped?`, skipped ${skipped} rows`:''}`);
 }catch(err){console.warn(err);toast('Could not read ODS: '+(err&&err.message||err))}})()};
@@ -450,7 +459,7 @@ el.innerHTML=`<p><b>${p.forces.length}</b> force(s), <b>${p.objectives.length}</
 ${p.forces.length?`<table><tr><th>Brigade</th><th>Mech</th><th>Pilot</th><th>G/P</th></tr>${p.forces.map(f=>`<tr><td>${f.brigade}</td><td>${f.mech}</td><td>${f.pilot||'—'}</td><td>${f.gp}</td></tr>`).join('')}</table>`:''}
 ${p.objectives.length?`<table><tr><th>Objective</th><th>Enabled</th><th>By</th><th>C-Bills</th></tr>${p.objectives.map(o=>`<tr><td>${o.text}</td><td>${o.enabled?'yes':'no'}</td><td>${o.by||'—'}</td><td>${o.payout.toLocaleString()}</td></tr>`).join('')}</table>`:''}
 ${p.map.size?`<p><b>Map:</b> ${p.map.size} — ${p.map.loc} — ${p.map.ter} — ${p.map.cond}</p>`:''}`}
-function brigadeByName(n){let b=S.brigades.find(x=>x.name.toLowerCase()===n.toLowerCase());if(!b){b={id:uid(),name:n,employer:'Imported',cbills:5000000,inventory:[],roster:[],active:[],dropship:true};S.brigades.push(b)}return b}
+function brigadeByName(n){let b=S.brigades.find(x=>x.name.toLowerCase()===n.toLowerCase());if(!b){b={id:uid(),name:n,employer:'Imported',cbills:5000000,inventory:[],roster:[],active:[],dropship:true,memorial:[]};S.brigades.push(b)}return b}
 function mechForInventory(b,mechName){let m=b.inventory.find(x=>x.n===mechName);if(m)return m;const cat=MECHS.find(v=>v.n===mechName)||MECHS.find(v=>v.n.toLowerCase()===mechName.toLowerCase());if(!cat)return null;const {canon,...rest}=cat;m={id:uid(),...rest};b.inventory.push(m);return m}
 function pilotForRoster(b,pilotName,gp){let g=4,p=5;const mm=String(gp||'').match(/(\d+)\s*\/\s*(\d+)/);if(mm){g=+mm[1];p=+mm[2]}
 let r=b.roster.find(x=>x.n.toLowerCase()===(pilotName||'').toLowerCase());if(!r){r={id:uid(),n:pilotName||'MechWarrior',g,p};b.roster.push(r)}return r}
@@ -471,7 +480,7 @@ function renderMechRef(){const ref=document.getElementById('mechRef');if(!ref)re
 renderMechRef();
 document.getElementById('seedBtn').onclick=()=>{if(!confirm('Load demo campaign?'))return;S.dates=[{id:uid(),date:new Date().toISOString().slice(0,10),note:'Shop Night — demo',status:'open',locked:false,mode:S.mode||'TW'}];
 const pick=n=>{const m=MECHS.find(v=>v.n.toLowerCase().includes(n.toLowerCase()))||MECHS[0];const {canon,...rest}=m;return {id:uid(),...rest}};
-const b1={id:uid(),name:'Iron Jackals',employer:'Federated Suns',cbills:5200000,inventory:[pick('Marauder MAD-3R'),pick('Hunchback HBK-4G')],roster:[{id:uid(),n:'Vera "Hammer" Kao',g:3,p:4},{id:uid(),n:'Dax Renn',g:4,p:5}],active:[],dropship:true};
+const b1={id:uid(),name:'Iron Jackals',employer:'Federated Suns',cbills:5200000,inventory:[pick('Marauder MAD-3R'),pick('Hunchback HBK-4G')],roster:[{id:uid(),n:'Vera "Hammer" Kao',g:3,p:4},{id:uid(),n:'Dax Renn',g:4,p:5}],active:[],dropship:true,memorial:[]};
 b1.active=[{mech:b1.inventory[0].id,pilot:b1.roster[0].id,on:true},{mech:b1.inventory[1].id,pilot:b1.roster[1].id,on:true}];S.brigades=[b1];save();renderAll()};
 document.getElementById('wipeBtn').onclick=()=>{if(confirm('Wipe all?')){S={era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[],outcomes:[],selScenario:null,activePredrop:null};save();renderAll()}};
 document.getElementById('jsonBtn').onclick=()=>{const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bt-backup.json';a.click()};
