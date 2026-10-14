@@ -142,6 +142,113 @@ S.brigades.forEach(b=>{b.active.filter(a=>a.on).forEach(a=>{const m=b.inventory.
 csv+='\nOBJECTIVES,Objective,Enabled,AcceptedBy,Payout\n';if(s)s.objectives.forEach(o=>{csv+=`OBJECTIVE,"${o.text}",${o.enabled},${(S.brigades.find(b=>b.id===o.by)||{}).name||''},${o.payout}\n`});
 csv+=`\nMAP,Size,Location,Terrain,Conditions\nMAP,"${s?s.map.size:''}","${s?s.map.loc:''}","${s?s.map.ter:''}","${s?s.map.cond:''}"\n`;
 const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bt-scenario.csv';a.click();toast('CSV downloaded — import into Google Sheets')};
+// ODS BRIGADE IMPORT (loose & friendly; matches Example_Brigade_Sheet.ods)
+// Minimal dependency-free .ods reader: tiny ZIP central-directory scan +
+// DecompressionStream('deflate-raw') + DOMParser. Anything outside the
+// expected Brigade/Pilots/Mechs shapes is skipped, never fatal.
+async function odsContentXML(file){
+const buf=new Uint8Array(await file.arrayBuffer());
+const dv=new DataView(buf.buffer,buf.byteOffset,buf.byteLength);
+const u16=i=>dv.getUint16(i,true),u32=i=>dv.getUint32(i,true);
+let eocd=-1;for(let i=buf.length-22;i>=0&&i>=Math.max(0,buf.length-66000);i--){if(u32(i)===0x06054b50){eocd=i;break}}
+if(eocd<0)throw new Error('not an ods/zip file');
+const count=u16(eocd+10);let p=u32(eocd+16);
+for(let k=0;k<count;k++){if(u32(p)!==0x02014b50)break;
+const method=u16(p+10),csize=u32(p+20),nl=u16(p+28),el=u16(p+30),cl=u16(p+32),lh=u32(p+42);
+let nm='';for(let j=0;j<nl;j++)nm+=String.fromCharCode(buf[p+46+j]);
+if(nm==='content.xml'){
+if(method===0)return new TextDecoder().decode(buf.slice(lh+30+u16(lh+26)+u16(lh+28),lh+30+u16(lh+26)+u16(lh+28)+csize));
+if(method!==8)throw new Error('unsupported compression');
+const raw=buf.slice(lh+30+u16(lh+26)+u16(lh+28),lh+30+u16(lh+26)+u16(lh+28)+csize);
+const ds=new DecompressionStream('deflate-raw');
+const stream=new Blob([raw]).stream().pipeThrough(ds);
+return new TextDecoder().decode(new Uint8Array(await new Response(stream).arrayBuffer()));}
+p+=46+nl+el+cl}
+throw new Error('content.xml not found')}
+function odsGrids(xmlText){
+const doc=new DOMParser().parseFromString(xmlText,'application/xml');
+if(doc.querySelector('parsererror'))throw new Error('bad content.xml');
+const NS='urn:oasis:names:tc:opendocument:xmlns:table:1.0';
+const OFF='urn:oasis:names:tc:opendocument:xmlns:office:1.0';
+const TXT='urn:oasis:names:tc:opendocument:xmlns:text:1.0';
+const out={};
+for(const t of doc.getElementsByTagNameNS(NS,'table')){
+const sname=t.getAttributeNS(NS,'name')||'Sheet';
+const grid=[];
+for(const r of t.childNodes){
+if(!r.getAttributeNS)continue;
+const rr=+r.getAttributeNS(NS,'number-rows-repeated')||1;
+const row=[];
+for(const c of r.childNodes){
+if(!c.getAttributeNS)continue;
+const tag=c.localName;
+if(tag!=='table-cell'&&tag!=='covered-table-cell')continue;
+const rep=Math.min(+c.getAttributeNS(NS,'number-columns-repeated')||1,32);
+let v='';
+for(const p of c.getElementsByTagNameNS(TXT,'p'))v+=(v?' ':'')+p.textContent.trim();
+v=v.trim();
+if(!v&&c.getAttributeNS(OFF,'value')!=null&&c.getAttributeNS(OFF,'value')!=='')v=c.getAttributeNS(OFF,'value');
+for(let i=0;i<rep&&row.length<32;i++)row.push(v);}
+if(row.some(x=>x!=='')){for(let i=0;i<Math.min(rr,3);i++)grid.push([...row])}}
+if(grid.length)out[sname]=grid;}
+return out}
+function odsNum(v){if(v==null)return null;const m=String(v).replace(/[^0-9.\-]/g,'');if(!m||m==='-'||m==='.')return null;const n=parseFloat(m);return isNaN(n)?null:n}
+function odsSkill(v,fb){const n=odsNum(v);if(n==null)return fb;return Math.max(0,Math.min(8,Math.round(n)))}
+function odsNorm(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'')}
+function odsCatalogMatch(name,variant){
+const full=(name+' '+variant).trim();
+let m=MECHS.find(v=>v.n===full);if(m)return m;
+const nf=odsNorm(full);m=MECHS.find(v=>odsNorm(v.n)===nf);if(m)return m;
+const nn=odsNorm(name);const cands=MECHS.filter(v=>odsNorm(v.n).startsWith(nn));
+if(cands.length){const nv=odsNorm(variant);return cands.find(v=>odsNorm(v.n).endsWith(nv))||cands[0]}
+return null}
+document.getElementById('odsFile').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+(async()=>{try{
+const grids=odsGrids(await odsContentXML(f));
+const keys=Object.keys(grids);
+const pick=re=>keys.find(k=>re.test(k));
+let skipped=0;
+// Brigade sheet: label (col A) / value (col B) pairs
+let bname='',employer='',cbills=5000000;
+const bg=grids[pick(/brigade/i)]||[];
+bg.forEach(r=>{const a=(r[0]||'').toLowerCase(),b=(r[1]||'').trim();if(!b)return;
+if(/brigade\s*name/.test(a))bname=b;
+else if(/employer|servant|employed|allegiance|faction/.test(a))employer=b;
+else if(/starting investment|starting.*fund|budget|initial.*fund/.test(a)){const n=odsNum(b);if(n!=null)cbills=Math.round(n)}});
+// Pilots sheet: header Name + Piloting/Gunnery, data below
+const roster=[];
+const pg=grids[pick(/pilot/i)]||[];
+let hi=pg.findIndex(r=>{const j=r.join(' ').toLowerCase();return j.includes('name')&&(j.includes('pilot')||j.includes('gunner'))});
+if(hi>=0){const H=pg[hi].map(h=>h.toLowerCase());
+const ni=H.findIndex(h=>h.includes('name')&&!h.includes('user'));let gi=H.findIndex(h=>h.includes('gunnery')||h==='g');let pi=H.findIndex(h=>h.includes('pilot')&&!h.includes('name')||h==='p');
+if(ni<0)ni=0;if(gi<0)gi=2;if(pi<0)pi=1;
+for(const r of pg.slice(hi+1)){const nm=(r[ni]||'').trim();if(!nm){continue}
+let g=odsSkill(r[pi],4),p=odsSkill(r[gi],5);
+const comb=String(r[pi]||'').match(/(\d)\s*\/\s*(\d)/)||String(r[gi]||'').match(/(\d)\s*\/\s*(\d)/);
+if(comb){g=Math.max(0,Math.min(8,+comb[1]));p=Math.max(0,Math.min(8,+comb[2]))}
+roster.push({id:uid(),n:nm,g,p})}}
+// Mechs sheet: Name + Model/Variant + optional BV/PV/C-Bills
+const mechs=[];
+const mg=grids[pick(/mech/i)]||[];
+let mh=mg.findIndex(r=>{const j=r.join(' ').toLowerCase();return j.includes('name')&&(j.includes('model')||j.includes('variant'))});
+if(mh>=0){const H=mg[mh].map(h=>h.toLowerCase());
+const ni=H.findIndex(h=>h==='name'||h.includes('chassis'));let vi=H.findIndex(h=>h.includes('variant')||h.includes('model'));
+const bi=H.findIndex(h=>/\bbv\b/.test(h));const pvi=H.findIndex(h=>/\bpv\b/.test(h));
+const ci=H.findIndex(h=>h.includes('c-bill')||h.includes('c bill')||h.includes('cost')||h.includes('value'));
+if(ni<0||vi<0){skipped+=mg.length-mh-1}else{
+for(const r of mg.slice(mh+1)){const nm=(r[ni]||'').trim(),va=(r[vi]||'').trim();
+const nonEmpty=r.filter(x=>x!=='').length;
+if(!nm||!va){if(nonEmpty>0)skipped++;continue}
+const cat=odsCatalogMatch(nm,va);
+const bv=bi>=0?odsNum(r[bi]):null,pvv=pvi>=0?odsNum(r[pvi]):null,cb=ci>=0?odsNum(r[ci]):null;
+if(cat)mechs.push({id:uid(),n:cat.n,bv:bv!=null?Math.round(bv):cat.bv,pv:pvv!=null?Math.round(pvv):cat.pv,cb:cb!=null?Math.round(cb):cat.cb,tons:cat.tons,yr:cat.yr,wc:cat.wc,ico:cat.ico||icoFor(cat.wc)});
+else if(bv!=null||pvv!=null)mechs.push({id:uid(),n:nm+' '+va,bv:bv!=null?Math.round(bv):800,pv:pvv!=null?Math.round(pvv):20,cb:cb!=null?Math.round(cb):3000000,tons:null,yr:null,wc:'Medium',ico:icoFor('Medium')});
+else skipped++}}}
+if(!bname&&!roster.length&&!mechs.length){toast('No brigade data recognised — skipped file');return}
+const b={id:uid(),name:bname||f.name.replace(/\.ods$/i,'')||'Imported Brigade',employer:employer||'Independent',cbills,inventory:mechs,roster,active:[],dropship:true};
+S.brigades.push(b);save();renderAll();
+toast(`Imported '${b.name}': ${mechs.length} mechs, ${roster.length} pilots${skipped?`, skipped ${skipped} rows`:''}`);
+}catch(err){console.warn(err);toast('Could not read ODS: '+(err&&err.message||err))}})()};
 // IMPORT SHEETS CSV (round-trip of the Export format)
 let parsedImport=null;
 function parseCSVLine(line){const out=[];let cur='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(q){if(c==='"'){if(line[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}else{if(c==='"')q=true;else if(c===','){out.push(cur);cur=''}else cur+=c}}out.push(cur);return out.map(s=>s.trim())}
