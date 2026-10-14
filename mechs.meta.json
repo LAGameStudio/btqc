@@ -1,0 +1,44 @@
+{
+  "file": "mechs.json",
+  "generatedAt": "2026-10-14T18:22:59Z",
+  "source": "https://db.mekbay.com/units.json",
+  "sourceUpstream": "https://github.com/MegaMek/mekbay (data served from its db host)",
+  "sourceHttpEtag": "\"6ab6a282-1a04b4e\"",
+  "sourceHttpLastModified": "Fri, 25 Sep 2026 16:34:10 GMT",
+  "sourceHttpLength": 27282254,
+  "catalogVersion": 1790353501887,
+  "filter": {
+    "type": "Mek"
+  },
+  "counts": {
+    "total": 4295,
+    "canon": 4254,
+    "roles": {
+      "Brawler": 644,
+      "Striker": 818,
+      "Sniper": 672,
+      "Scout": 337,
+      "Skirmisher": 900,
+      "Juggernaut": 377,
+      "Missile Boat": 387,
+      "None": 67,
+      "Ambusher": 93
+    }
+  },
+  "fields": [
+    "bv",
+    "canon",
+    "cb",
+    "fm",
+    "k",
+    "n",
+    "pv",
+    "rl",
+    "tons",
+    "wc",
+    "yr"
+  ],
+  "sha256": "1c4d93a2d0c31997785850085d13910aad951f67b89da3809c9a8b3e6664677e",
+  "howToDelta": "Re-fetch source; compare catalogVersion/ETag/Last-Modified with the values here. If changed, download units.json, filter type=Mek, rebuild mechs.json with the same field mapping, and diff by the \"k\" (upstream unit name) key.",
+  "keyForDiff": "k"
+}

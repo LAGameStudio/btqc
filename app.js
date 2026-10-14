@@ -17,8 +17,13 @@ function roleOf(m){return m&&(m.rl||(MECHS.find(c=>c.n===m.n)||{}).rl)||'None'}
 function flamersOf(m){if(!m)return 0;if(m.fm!=null)return m.fm;const c=MECHS.find(x=>x.n===m.n);return c&&c.fm||0}
 // Full MekBay catalog (type=Mek, 4,295 units, BV+PV+cost) generated from https://github.com/MegaMek/mekbay via db.mekbay.com/units.json
 fetch('mechs.json').then(r=>{if(!r.ok)throw 0;return r.json()}).then(j=>{
-  if(Array.isArray(j)&&j.length>100){MECHS=j.map(u=>({...u,ico:icoFor(u.rl,u.wc,u.fm)}));MECH_SOURCE=`MekBay catalog (${MECHS.length.toLocaleString()} Mek units, db.mekbay.com 2026-09-25)`;renderBrigs();renderMechRef();toast(`Loaded ${MECHS.length.toLocaleString()} MekBay mechs`)}
+  if(Array.isArray(j)&&j.length>100){MECHS=j.map(u=>({...u,ico:icoFor(u.rl,u.wc,u.fm)}));MECH_SOURCE=`MekBay catalog (${MECHS.length.toLocaleString()} Mek units, db.mekbay.com)`;renderBrigs();renderMechRef();toast(`Loaded ${MECHS.length.toLocaleString()} MekBay mechs`)}
 }).catch(()=>{renderMechRef()});
+// Sync provenance: when mechs.json last changed vs the MekBay repo (see mechs.meta.json).
+fetch('mechs.meta.json').then(r=>{if(!r.ok)throw 0;return r.json()}).then(m=>{
+  if(m&&m.generatedAt)MECH_SOURCE+=` — synced ${String(m.generatedAt).slice(0,10)} (catalog v${m.catalogVersion||'?'}, see mechs.meta.json for delta info)`;
+  renderMechRef();
+}).catch(()=>{});
 const MISSIONS=[
 {t:'Ambush / Raid',d:'Hit supply convoy on Hinterlands trade road. Fast strikers favored.',obj:['Destroy 50% convoy vehicles','Capture supply cache','Exfiltrate off south edge'],pay:850000,map:{size:'32x34',loc:'Hinterlands crossroads',ter:'Light woods / road',cond:'Dawn, light fog (+1 ranged >12 hex)'}},
 {t:'Breakthrough',d:'Punch through Draconis Combine picket to relieve garrison.',obj:['Exit 50% force off far edge','Destroy pillbox','Protect APC with tech team'],pay:1200000,map:{size:'36x48',loc:'Draconis border fort',ter:'Hills / bunker',cond:'Clear, extreme heat (+1 heat/turn)'}},
