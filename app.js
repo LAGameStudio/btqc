@@ -142,6 +142,39 @@ S.brigades.forEach(b=>{b.active.filter(a=>a.on).forEach(a=>{const m=b.inventory.
 csv+='\nOBJECTIVES,Objective,Enabled,AcceptedBy,Payout\n';if(s)s.objectives.forEach(o=>{csv+=`OBJECTIVE,"${o.text}",${o.enabled},${(S.brigades.find(b=>b.id===o.by)||{}).name||''},${o.payout}\n`});
 csv+=`\nMAP,Size,Location,Terrain,Conditions\nMAP,"${s?s.map.size:''}","${s?s.map.loc:''}","${s?s.map.ter:''}","${s?s.map.cond:''}"\n`;
 const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bt-scenario.csv';a.click();toast('CSV downloaded — import into Google Sheets')};
+// IMPORT SHEETS CSV (round-trip of the Export format)
+let parsedImport=null;
+function parseCSVLine(line){const out=[];let cur='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(q){if(c==='"'){if(line[i+1]==='"'){cur+='"';i++}else q=false}else cur+=c}else{if(c==='"')q=true;else if(c===','){out.push(cur);cur=''}else cur+=c}}out.push(cur);return out.map(s=>s.trim())}
+function parseSheetCSV(text){const res={forces:[],objectives:[],map:{size:'',loc:'',ter:'',cond:''},meta:{}};
+text.split(/\r?\n/).forEach(line=>{if(!line.trim())return;const c=parseCSVLine(line);const k=(c[0]||'').toUpperCase();
+if(k==='FORCE'&&c.length>=5)res.forces.push({brigade:c[1]||'Unnamed Brigade',mech:c[2]||'',pilot:c[3]||'',gp:c[4]||'4/5'});
+else if(k==='OBJECTIVE'&&c.length>=5)res.objectives.push({text:c[1]||'',enabled:/^true$/i.test(c[2]||''),by:c[3]||'',payout:parseInt(c[4]||'0',10)||0});
+else if(k==='MAP'&&c.length>=5)res.map={size:c[1],loc:c[2],ter:c[3],cond:c[4]};
+else if(k==='BT QUICK CONTRACT EXPORT'){res.meta.exported=c[1]||'';const e=(c[2]||'').replace(/^Era:\s*/,'');if(e)res.meta.era=e;const m=(c[3]||'').replace(/^Mode:\s*/,'');if(m)res.meta.mode=m}});
+return res}
+function refreshImportDates(){const sel=document.getElementById('importDate');if(!sel)return;const cur=sel.value;sel.innerHTML=S.dates.map(g=>`<option value="${g.id}">${g.date} ${g.note||''}</option>`).join('')||'<option value="">— add a game date first —</option>';if(cur&&[...sel.options].some(o=>o.value===cur))sel.value=cur}
+function renderImportPreview(){const el=document.getElementById('importPreview');const btn=document.getElementById('applyImportBtn');if(!parsedImport){el.innerHTML='<p class="hint">No CSV parsed yet.</p>';btn.disabled=true;return}
+const p=parsedImport;btn.disabled=!(p.forces.length||p.objectives.length);
+el.innerHTML=`<p><b>${p.forces.length}</b> force(s), <b>${p.objectives.length}</b> objective(s)${p.meta.era?`, era ${p.meta.era}`:''}${p.meta.mode?`, mode ${p.meta.mode}`:''}.</p>
+${p.forces.length?`<table><tr><th>Brigade</th><th>Mech</th><th>Pilot</th><th>G/P</th></tr>${p.forces.map(f=>`<tr><td>${f.brigade}</td><td>${f.mech}</td><td>${f.pilot||'—'}</td><td>${f.gp}</td></tr>`).join('')}</table>`:''}
+${p.objectives.length?`<table><tr><th>Objective</th><th>Enabled</th><th>By</th><th>C-Bills</th></tr>${p.objectives.map(o=>`<tr><td>${o.text}</td><td>${o.enabled?'yes':'no'}</td><td>${o.by||'—'}</td><td>${o.payout.toLocaleString()}</td></tr>`).join('')}</table>`:''}
+${p.map.size?`<p><b>Map:</b> ${p.map.size} — ${p.map.loc} — ${p.map.ter} — ${p.map.cond}</p>`:''}`}
+function brigadeByName(n){let b=S.brigades.find(x=>x.name.toLowerCase()===n.toLowerCase());if(!b){b={id:uid(),name:n,employer:'Imported',cbills:5000000,inventory:[],roster:[],active:[],dropship:true};S.brigades.push(b)}return b}
+function mechForInventory(b,mechName){let m=b.inventory.find(x=>x.n===mechName);if(m)return m;const cat=MECHS.find(v=>v.n===mechName)||MECHS.find(v=>v.n.toLowerCase()===mechName.toLowerCase());if(!cat)return null;const {canon,...rest}=cat;m={id:uid(),...rest};b.inventory.push(m);return m}
+function pilotForRoster(b,pilotName,gp){let g=4,p=5;const mm=String(gp||'').match(/(\d+)\s*\/\s*(\d+)/);if(mm){g=+mm[1];p=+mm[2]}
+let r=b.roster.find(x=>x.n.toLowerCase()===(pilotName||'').toLowerCase());if(!r){r={id:uid(),n:pilotName||'MechWarrior',g,p};b.roster.push(r)}return r}
+document.getElementById('csvFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{document.getElementById('csvText').value=r.result;parsedImport=parseSheetCSV(r.result);renderImportPreview();toast(`Parsed ${parsedImport.forces.length} forces, ${parsedImport.objectives.length} objectives`)};r.readAsText(f)};
+document.getElementById('parseBtn').onclick=()=>{const t=document.getElementById('csvText').value;if(!t.trim())return toast('Paste CSV or choose a file first');parsedImport=parseSheetCSV(t);renderImportPreview();toast(`Parsed ${parsedImport.forces.length} forces, ${parsedImport.objectives.length} objectives`)};
+document.getElementById('applyImportBtn').onclick=()=>{
+if(!parsedImport)return;const gid=document.getElementById('importDate').value;if(!gid)return toast('Create a game date first');
+const p=parsedImport;
+if(p.meta.era&&ERAS.includes(p.meta.era))S.era=p.meta.era;
+if(p.meta.mode==='TW'||p.meta.mode==='AS')setMode(p.meta.mode);
+p.forces.forEach(f=>{if(!f.brigade||!f.mech)return;const b=brigadeByName(f.brigade);const m=mechForInventory(b,f.mech);if(!m)return;const r=f.pilot?pilotForRoster(b,f.pilot,f.gp):null;b.active.push({mech:m.id,pilot:r?r.id:'',on:true})});
+const sc={id:uid(),gameDateId:gid,title:'Imported Contract — '+new Date().toISOString().slice(0,10),type:'Imported',backstory:`[${S.era}] Imported from Sheets CSV${p.meta.exported?` (exported ${p.meta.exported})`:''}.`,objectives:p.objectives.map(o=>({id:uid(),text:o.text,payout:o.payout,enabled:o.enabled,by:o.by?((S.brigades.find(b=>b.name.toLowerCase()===o.by.toLowerCase())||{}).id||''):''})),map:{size:p.map.size||'36x36',loc:p.map.loc||'Unknown',ter:p.map.ter||'Unknown',cond:p.map.cond||'Clear'},opfor:'Imported (as listed)',status:'active',salvage:{}};
+S.scenarios.forEach(x=>{if(x.gameDateId===gid&&x.status==='active')x.status='available'});
+S.scenarios.push(sc);S.selScenario=sc.id;S.activePredrop=sc.id;parsedImport=null;document.getElementById('csvText').value='';document.getElementById('csvFile').value='';
+save();renderAll();renderImportPreview();toast('Import applied — see Brigades & Pre-Drop')};
 // SETTINGS
 function renderMechRef(){const ref=document.getElementById('mechRef');if(!ref)return;const show=MECHS.slice(0,120);ref.innerHTML=`<p class="hint">Source: ${MECH_SOURCE}. Showing ${show.length} of ${MECHS.length.toLocaleString()} — use Brigade search to find any unit.</p>`+show.map(m=>`<div class="pill" title="${m.wc||''} ${m.tons||''}t ${m.yr||''}">${m.ico} ${m.n} ${m.bv}BV/${m.pv}PV</div>`).join('');const h=ref.previousElementSibling;if(h&&h.tagName==='H3')h.textContent=`Mech Catalog — ${MECHS.length.toLocaleString()} units (BV/PV/C-Bills)`}
 renderMechRef();
@@ -152,5 +185,5 @@ b1.active=[{mech:b1.inventory[0].id,pilot:b1.roster[0].id,on:true},{mech:b1.inve
 document.getElementById('wipeBtn').onclick=()=>{if(confirm('Wipe all?')){S={era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[]};save();renderAll()}};
 document.getElementById('jsonBtn').onclick=()=>{const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bt-backup.json';a.click()};
 document.getElementById('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{S=JSON.parse(r.result);save();renderAll()};r.readAsText(f)};
-function renderAll(){save();renderDates();renderBrigs();renderScens()}
+function renderAll(){save();renderDates();renderBrigs();renderScens();refreshImportDates()}
 renderAll();

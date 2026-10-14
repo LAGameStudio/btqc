@@ -17,7 +17,7 @@
       <button id="modeAS" class="seg-btn">ALPHA STRIKE<br><small>PV</small></button>
     </div>
     <div class="era-wrap"><label>ERA</label><select id="eraSelect"></select></div>
-    <button id="exportBtn" class="btn glow">⇩ Export Sheets CSV</button>
+    <button id="exportBtn" class="btn glow">⇩ Export</button>
   </div>
 </header>
 <nav class="tabs" role="tablist">
@@ -25,6 +25,7 @@
   <button class="tab" data-tab="brigades">♞ Brigades</button>
   <button class="tab" data-tab="scenarios">✦ Scenarios</button>
   <button class="tab" data-tab="predrop">▼ Pre-Drop</button>
+  <button class="tab" data-tab="import">⇩ Import</button>
   <button class="tab" data-tab="settings">⚙ Settings</button>
 </nav>
 <main>
@@ -61,6 +62,14 @@
   <div class="card"><h2>Pre-Drop — Final Balancing</h2>
     <div class="row"><label>Active Scenario <select id="predropSelect"></select></label><button class="btn" id="refreshPredrop">↻ Recompute</button></div>
     <div id="predropOut"></div>
+  </div>
+</section>
+<section id="tab-import" class="panel">
+  <div class="card"><h2>Import Sheets CSV</h2>
+    <p class="hint">Import back a CSV previously exported with <b>⇩ Export</b> (e.g. edited in Google Sheets). Forces, objectives, payouts and map are restored into the selected game date.</p>
+    <div class="row wrap"><label class="btn">Choose CSV file <input type="file" id="csvFile" hidden accept=".csv,text/csv"></label><label>Game Date <select id="importDate"></select></label><button class="btn" id="parseBtn">Parse</button><button class="btn glow" id="applyImportBtn" disabled>Apply Import</button></div>
+    <div class="row"><textarea id="csvText" rows="4" style="width:100%" placeholder="…or paste CSV text here, then press Parse"></textarea></div>
+    <div id="importPreview"><p class="hint">No CSV parsed yet.</p></div>
   </div>
 </section>
 <section id="tab-settings" class="panel">
