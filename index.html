@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BT Quick Contract Scenario Tool</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brand-icon">◈</span><div><h1>BT QUICK CONTRACT</h1><p>Scenario Tool // MercNet Uplink v3.067</p></div></div>
+  <div class="top-controls">
+    <div class="seg" role="group" aria-label="Game style">
+      <button id="modeTW" class="seg-btn active">TOTAL WARFARE<br><small>BV</small></button>
+      <button id="modeAS" class="seg-btn">ALPHA STRIKE<br><small>PV</small></button>
+    </div>
+    <div class="era-wrap"><label>ERA</label><select id="eraSelect"></select></div>
+    <button id="exportBtn" class="btn glow">⇩ Export Sheets CSV</button>
+  </div>
+</header>
+<nav class="tabs" role="tablist">
+  <button class="tab active" data-tab="schedule">◷ Schedule</button>
+  <button class="tab" data-tab="brigades">♞ Brigades</button>
+  <button class="tab" data-tab="scenarios">✦ Scenarios</button>
+  <button class="tab" data-tab="predrop">▼ Pre-Drop</button>
+  <button class="tab" data-tab="settings">⚙ Settings</button>
+</nav>
+<main>
+<section id="tab-schedule" class="panel active">
+  <div class="grid2">
+    <div class="card"><h2>Game Dates</h2>
+      <div class="row"><input type="date" id="newDate"><input type="text" id="newDateNote" placeholder="Note e.g. Shop Night — March"><button class="btn" id="addDateBtn">+ Add Date</button></div>
+      <div id="dateList" class="stack"></div>
+    </div>
+    <div class="card"><h2>Calendar</h2><div id="calendar" class="calendar"></div>
+      <p class="hint">Past dates auto-lock (read-only). GM can unlock / relock at will. All state autosaves to this browser (localStorage).</p>
+    </div>
+  </div>
+</section>
+<section id="tab-brigades" class="panel">
+  <div class="card"><h2>Brigades / Player Teams</h2>
+    <div class="row"><input id="brigName" placeholder="Brigade name e.g. Iron Jackals"><input id="brigEmployer" placeholder="Employer e.g. Federated Suns"><button class="btn" id="addBrigBtn">+ Add Brigade</button></div>
+    <div id="brigList" class="stack"></div>
+  </div>
+</section>
+<section id="tab-scenarios" class="panel">
+  <div class="card"><h2>Contract Generation</h2>
+    <div class="row wrap">
+      <label>Game Date <select id="genDate"></select></label>
+      <label>Count <select id="genCount"><option>5</option><option selected>10</option><option>3</option></select></label>
+      <button class="btn glow" id="genBtn">⚄ Generate Scenarios</button>
+      <label class="check"><input type="checkbox" id="includeOld" checked> Include unused from prior dates</label>
+    </div>
+    <div id="scenarioList" class="cards-grid"></div>
+  </div>
+  <div class="card"><h2>Contract Inspector</h2><div id="inspector"><p class="hint">Select a scenario to see backstory, objectives, payouts, salvage sliders, map.</p></div></div>
+</section>
+<section id="tab-predrop" class="panel">
+  <div class="card"><h2>Pre-Drop — Final Balancing</h2>
+    <div class="row"><label>Active Scenario <select id="predropSelect"></select></label><button class="btn" id="refreshPredrop">↻ Recompute</button></div>
+    <div id="predropOut"></div>
+  </div>
+</section>
+<section id="tab-settings" class="panel">
+  <div class="card"><h2>Settings & Data</h2>
+    <div class="row wrap"><button class="btn" id="seedBtn">Load Demo Campaign</button><button class="btn danger" id="wipeBtn">Wipe All Data</button><button class="btn" id="jsonBtn">Export JSON</button><label class="btn">Import JSON <input type="file" id="importFile" hidden accept=".json"></label></div>
+    <h3>Mech Quick-Add Reference (BV/PV/C-Bills)</h3><div id="mechRef" class="mechref"></div>
+    <h3>Rules Notes</h3><ul class="notes"><li>Sources: Campaign Operations, Mercenaries, Hinterlands, Draconis Combine campaign books. OpFor & objective modifiers are transparent in Pre-Drop.</li><li>BV skill multiplier uses Classic table (4/5 = 1.00). PV skill uses AS Companion p.92 (+1 skill ≈ +~10%).</li><li>Monthly upkeep = 4% of active 'Mech C-Bill value + 15,000 per active MechWarrior + 25,000 Dropship berth.</li><li>Sheets export: CSV with Forces / Objectives / Payouts / Map — import via File → Import in Google Sheets.</li></ul>
+  </div>
+</section>
+</main>
+<footer><span>BT Quick Contract Scenario Tool — unofficial fan tool. BattleTech © Catalyst Game Labs / Topps.</span></footer>
+<div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
