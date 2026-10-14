@@ -34,6 +34,9 @@ function uid(){return Math.random().toString(36).slice(2,9)}
 function load(){try{return JSON.parse(localStorage.getItem(LS))||null}catch(e){return null}}
 function save(){localStorage.setItem(LS,JSON.stringify(S));}
 let S=load()||{era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[],selScenario:null,activePredrop:null};
+// Calendar view state (declared early: setMode() renders before the calendar code is defined)
+let calView={y:null,m:null};
+const MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
 // BV skill multiplier table (Classic, simplified from TM p.315)
 function bvMult(g,p){const t={'0/0':2.1,'1/1':1.8,'2/2':1.5,'3/3':1.25,'3/4':1.15,'4/4':1.1,'4/5':1.0,'5/5':0.9,'5/6':0.8,'6/6':0.75};const k=g+'/'+p;if(t[k])return t[k];let m=1.0+(4-g)*0.2+(5-p)*0.1;return Math.max(0.5,Math.round(m*100)/100)}
 function pvSkill(g,p){return Math.max(8,Math.round((g+p)*2.2))} // rough AS PV w/ skill
@@ -51,9 +54,35 @@ function setMode(m){S.mode=m;save();document.getElementById('modeTW').classList.
 document.getElementById('modeTW').onclick=()=>setMode('TW');document.getElementById('modeAS').onclick=()=>setMode('AS');setMode(S.mode||'TW');
 // SCHEDULE
 document.getElementById('addDateBtn').onclick=()=>{const d=document.getElementById('newDate').value;if(!d)return toast('Pick a date');S.dates.push({id:uid(),date:d,note:document.getElementById('newDateNote').value,status:'open',locked:false});save();renderAll();toast('Game date added')};
-function renderDates(){const el=document.getElementById('dateList');el.innerHTML='';const today=new Date().toISOString().slice(0,10);
+function todayStr(){return new Date().toISOString().slice(0,10)}
+function upcomingGameId(){const t=todayStr();return (S.dates.filter(g=>g.status==='open'&&!g.locked&&g.date>=t).sort((a,b)=>a.date.localeCompare(b.date))[0]||{}).id}
+function calShift(delta){if(calView.y==null){const n=new Date();calView={y:n.getFullYear(),m:n.getMonth()}}const d=new Date(calView.y,calView.m+delta,1);calView={y:d.getFullYear(),m:d.getMonth()};renderCalendar()}
+function renderCalendar(){
+const cal=document.getElementById('calendar');if(!cal)return;
+const t=todayStr();if(calView.y==null){const n=new Date();calView={y:n.getFullYear(),m:n.getMonth()}}
+const y=calView.y,m=calView.m,upId=upcomingGameId();
+const first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();
+let html=`<div class="calhead"><button class="btn small" data-cal="-1">‹</button><span class="caltitle">${MONTH_NAMES[m]} ${y}</span><button class="btn small" data-cal="1">›</button><button class="btn small" data-cal="0">Today</button></div><div class="calgrid">`;
+html+=['S','M','T','W','T','F','S'].map(d=>`<div class="dow">${d}</div>`).join('');
+for(let i=0;i<first;i++)html+='<div class="day pad"></div>';
+for(let d=1;d<=days;d++){
+const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+const gs=S.dates.filter(g=>g.date===ds),live=gs.filter(g=>g.status!=='cancelled');
+const cls=['day'];
+if(ds<t&&live.length)cls.push('past');
+if(ds>t&&live.length)cls.push('future');
+if(ds===t)cls.push('today');
+if(gs.some(g=>g.id===upId))cls.push('upcomingday');
+if(gs.length&&!live.length)cls.push('cancelled');
+const title=gs.map(g=>`${g.status.toUpperCase()}${g.locked?' (locked)':''} ${g.note||''}`.trim()).join(' | ');
+html+=`<div class="${cls.join(' ')}"${title?` title="${title.replace(/"/g,'&quot;')}"`:''}>${d}${gs.length?`<span class="caldot">${'●'.repeat(Math.min(gs.length,3))}</span>`:''}${gs.some(g=>g.id===upId)?'<span class="calstar">★</span>':''}</div>`}
+html+='</div>';
+cal.innerHTML=html;
+cal.querySelectorAll('[data-cal]').forEach(b=>b.onclick=()=>{const v=+b.dataset.cal;if(v===0){calView={y:null,m:null};renderCalendar()}else calShift(v)});
+}
+function renderDates(){const el=document.getElementById('dateList');el.innerHTML='';const today=todayStr();
 S.dates.sort((a,b)=>a.date.localeCompare(b.date));
-const upcomingId=(S.dates.filter(g=>g.status==='open'&&!g.locked&&g.date>=today).sort((a,b)=>a.date.localeCompare(b.date))[0]||{}).id;
+const upcomingId=upcomingGameId();
 S.dates.forEach(g=>{if(g.date<today&&!g.locked&&g.status==='open'){g.locked=true}
 const d=document.createElement('div');d.className='date-row'+(g.locked?' locked':'');
 const up=g.id===upcomingId?' <span class="pill upcoming">UPCOMING</span>':'';
@@ -65,10 +94,7 @@ mk(g.locked?'Unlock':'Lock',()=>{g.locked=!g.locked;save();renderAll()});
 mk('Delete',()=>{if(confirm('Delete date?')){S.dates=S.dates.filter(x=>x.id!==g.id);save();renderAll()}});
 el.appendChild(d)});save();
 // calendar
-const cal=document.getElementById('calendar');cal.innerHTML=['S','M','T','W','T','F','S'].map(d=>`<div class="dow">${d}</div>`).join('');
-const now=new Date(),y=now.getFullYear(),mo=now.getMonth();const first=new Date(y,mo,1).getDay(),days=new Date(y,mo+1,0).getDate();
-for(let i=0;i<first;i++)cal.innerHTML+='<div></div>';
-for(let d=1;d<=days;d++){const ds=`${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;const has=S.dates.some(g=>g.date===ds);cal.innerHTML+=`<div class="day ${has?'has':''} ${ds===now.toISOString().slice(0,10)?'today':''}">${d}${has?' ●':''}</div>`}
+renderCalendar();
 // gen date select
 const gd=document.getElementById('genDate');gd.innerHTML=S.dates.map(g=>`<option value="${g.id}">${g.date} ${g.note||''}</option>`).join('')||'<option value="">— add a date first —</option>'}
 // BRIGADES

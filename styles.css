@@ -20,7 +20,17 @@ main{max-width:1150px;margin:0 auto;padding:14px}
 .btn.danger{border-color:var(--bad)}.btn.small{padding:5px 9px;font-size:11px}.btn:disabled{opacity:.4}
 .stack{display:flex;flex-direction:column;gap:10px}.date-row,.brig{border:1px solid var(--line);border-radius:10px;padding:10px;background:#0e1626}
 .date-row.locked{opacity:.85;border-style:dashed}.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:12px;border:1px solid var(--line)}.pill.lock{background:#3a2b00}.pill.open{background:#0b3524}.pill.cancel{background:#3a1212}.pill.upcoming{background:#7ce3a5;color:#0b3524;border-color:#7ce3a5;font-weight:700}.pill.legend{background:#3a2b00;color:#ffd54d;border-color:#8a6d00;font-weight:700}.pill.exp{background:#2b0b3a;color:#d9a5ff;border-color:#7b2fbf;font-weight:700}.pill.contemp{background:#0b3524;color:#7ce3a5;border-color:#1f7a4d;font-weight:700}
-.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.calendar .dow{color:var(--mut);font-size:11px;text-align:center}.calendar .day{min-height:44px;border:1px solid var(--line);border-radius:8px;padding:4px;font-size:12px;background:#0c1322}.calendar .day.has{background:#2a2305;border-color:var(--acc)}.calendar .day.today{outline:2px solid var(--acc2)}
+.calhead{display:flex;align-items:center;gap:6px;margin-bottom:8px}.caltitle{font-family:Orbitron;font-size:14px;color:var(--acc);flex:1;text-align:center;letter-spacing:1px}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.calgrid .dow{color:var(--mut);font-size:11px;text-align:center}
+.calgrid .day{position:relative;min-height:44px;border:1px solid var(--line);border-radius:8px;padding:4px;font-size:12px;background:#0c1322}
+.calgrid .day.pad{opacity:.12}
+.calgrid .day.past{background:#241014;border-color:#5a2230}
+.calgrid .day.future{background:#0c2430;border-color:#1f6b7a}
+.calgrid .day.cancelled{opacity:.45;text-decoration:line-through}
+.calgrid .day.today{outline:2px solid var(--acc2)}
+.calgrid .day.upcomingday{border:2px dashed var(--acc);background:#2a2305;box-shadow:0 0 10px #ffb30088,inset 0 0 8px #ffb30033}
+.caldot{display:block;font-size:8px;line-height:1.1;color:var(--acc2)}
+.calstar{position:absolute;top:1px;right:3px;font-size:11px;color:var(--acc)}
 .cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}.scen{border:1px solid var(--line);border-radius:12px;padding:10px;background:#0e1626}.scen.active{border-color:var(--good);box-shadow:0 0 10px #4caf7d55}.scen h3{font-family:Orbitron;font-size:14px;margin:4px 0}
 table{width:100%;border-collapse:collapse;font-size:14px}th,td{border-bottom:1px solid var(--line);padding:6px;text-align:left}th{color:var(--acc);font-family:Orbitron;font-size:11px;letter-spacing:1px}
 .mech-ico{font-size:22px;filter:drop-shadow(0 0 4px var(--acc2))}
