@@ -166,7 +166,7 @@ function renderScens(){const el=document.getElementById('scenarioList');el.inner
 let list=S.scenarios.filter(s=>s.status!=='discarded');
 if(!document.getElementById('includeOld').checked){const gid=document.getElementById('genDate').value;list=list.filter(s=>s.gameDateId===gid)}
 list.forEach(s=>{const d=document.createElement('div');d.className='scen'+(s.status==='active'?' active':'');
-d.innerHTML=`<span class="pill">${s.status.toUpperCase()}</span> <span class="hint">${s.gameDateId?'':''}</span><h3>${s.title}</h3><p>${s.backstory}</p><p class="hint">OpFor: ${s.opfor} | Map ${s.map.size} ${s.map.loc}</p><div class="row"><button class="btn small" data-view="${s.id}">Inspect</button><button class="btn small" data-act="${s.id}">Activate</button><button class="btn small" data-dis="${s.id}">Remove</button><button class="btn small" data-say="${s.id}">${sayLabel(s.id)}</button></div>`;
+d.innerHTML=`<span class="pill">${s.status.toUpperCase()}</span> <span class="hint">${s.gameDateId?'':''}</span><h3>${s.title}</h3><p>${s.backstory}</p><p class="hint">OpFor: ${s.opfor} | Map ${s.map.size} ${s.map.loc}</p><p class="hint">Payouts total: <b>${s.objectives.filter(o=>o.enabled).reduce((t,o)=>t+(+o.payout||0),0).toLocaleString()} C</b> (${s.objectives.filter(o=>o.enabled).length}/${s.objectives.length} objectives)</p><div class="row"><button class="btn small" data-view="${s.id}">Inspect</button><button class="btn small" data-act="${s.id}">Activate</button><button class="btn small" data-dis="${s.id}">Remove</button><button class="btn small" data-say="${s.id}">${sayLabel(s.id)}</button></div>`;
 el.appendChild(d)});
 const removed=S.scenarios.filter(s=>s.status==='discarded');
 if(removed.length){const bin=document.createElement('div');bin.className='card';
