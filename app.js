@@ -38,9 +38,17 @@ const MISSIONS=[
 function uid(){return Math.random().toString(36).slice(2,9)}
 function load(){try{return JSON.parse(localStorage.getItem(LS))||null}catch(e){return null}}
 function save(){localStorage.setItem(LS,JSON.stringify(S));}
-let S=load()||{era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[],selScenario:null,activePredrop:null};
+let S=load()||{era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[],outcomes:[],selScenario:null,activePredrop:null};
+if(!Array.isArray(S.outcomes))S.outcomes=[];
+S.dates.forEach(g=>{if(g.mode!=='TW'&&g.mode!=='AS')g.mode=S.mode||'TW'});
+// Effective rules mode: a game date's own TW/AS setting wins; global mode is the fallback.
+function dateMode(gid){const g=S.dates.find(x=>x.id===gid);return (g&&g.mode)||S.mode||'TW'}
+function scenMode(s){return s?dateMode(s.gameDateId):(S.mode||'TW')}
 // Calendar view state (declared early: setMode() renders before the calendar code is defined)
 let calView={y:null,m:null};
+// Speech + outcome draft state (same reason: the initial setMode()->renderAll() touches these)
+let sayId=null;
+let OD=null,editingOutcomeId=null;
 const MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
 // BV skill multiplier table (Classic, simplified from TM p.315)
 function bvMult(g,p){const t={'0/0':2.1,'1/1':1.8,'2/2':1.5,'3/3':1.25,'3/4':1.15,'4/4':1.1,'4/5':1.0,'5/5':0.9,'5/6':0.8,'6/6':0.75};const k=g+'/'+p;if(t[k])return t[k];let m=1.0+(4-g)*0.2+(5-p)*0.1;return Math.max(0.5,Math.round(m*100)/100)}
@@ -58,7 +66,7 @@ const eraSel=document.getElementById('eraSelect');ERAS.forEach(e=>{const o=docum
 function setMode(m){S.mode=m;save();document.getElementById('modeTW').classList.toggle('active',m==='TW');document.getElementById('modeAS').classList.toggle('active',m==='AS');renderAll()}
 document.getElementById('modeTW').onclick=()=>setMode('TW');document.getElementById('modeAS').onclick=()=>setMode('AS');setMode(S.mode||'TW');
 // SCHEDULE
-document.getElementById('addDateBtn').onclick=()=>{const d=document.getElementById('newDate').value;if(!d)return toast('Pick a date');S.dates.push({id:uid(),date:d,note:document.getElementById('newDateNote').value,status:'open',locked:false});save();renderAll();toast('Game date added')};
+document.getElementById('addDateBtn').onclick=()=>{const d=document.getElementById('newDate').value;if(!d)return toast('Pick a date');S.dates.push({id:uid(),date:d,note:document.getElementById('newDateNote').value,status:'open',locked:false,mode:S.mode||'TW'});save();renderAll();toast('Game date added')};
 function todayStr(){return new Date().toISOString().slice(0,10)}
 function upcomingGameId(){const t=todayStr();return (S.dates.filter(g=>g.status==='open'&&!g.locked&&g.date>=t).sort((a,b)=>a.date.localeCompare(b.date))[0]||{}).id}
 function calShift(delta){if(calView.y==null){const n=new Date();calView={y:n.getFullYear(),m:n.getMonth()}}const d=new Date(calView.y,calView.m+delta,1);calView={y:d.getFullYear(),m:d.getMonth()};renderCalendar()}
@@ -96,12 +104,13 @@ const row=d.querySelector('.row');
 const mk=(t,fn,dis)=>{const b=document.createElement('button');b.className='btn small';b.textContent=t;b.onclick=fn;b.disabled=!!dis;row.appendChild(b)};
 if(!g.locked){mk('Cancel',()=>{g.status='cancelled';save();renderAll()});mk('Reschedule',()=>{if(row.querySelector('[data-resched]'))return;const inp=document.createElement('input');inp.type='date';inp.value=g.date;inp.setAttribute('data-resched','1');const set=document.createElement('button');set.className='btn small';set.textContent='Set date';set.onclick=()=>{if(!inp.value)return toast('Pick a date');g.date=inp.value;g.status='open';save();renderAll();toast('Game date rescheduled')};row.appendChild(inp);row.appendChild(set);inp.focus()});}
 mk(g.locked?'Unlock':'Lock',()=>{g.locked=!g.locked;save();renderAll()});
+const gm=document.createElement('button');gm.className='btn small';gm.textContent='Mode: '+(g.mode||S.mode||'TW');gm.title='Flip this game date between Total Warfare (BV) and Alpha Strike (PV)';gm.onclick=()=>{g.mode=(g.mode||S.mode||'TW')==='TW'?'AS':'TW';save();renderAll();toast(`Game date mode: ${g.mode==='TW'?'Total Warfare':'Alpha Strike'}`)};row.appendChild(gm);
 mk('Delete',()=>{if(confirm('Delete date?')){S.dates=S.dates.filter(x=>x.id!==g.id);save();renderAll()}});
 el.appendChild(d)});save();
 // calendar
 renderCalendar();
 // gen date select
-const gd=document.getElementById('genDate');gd.innerHTML=S.dates.map(g=>`<option value="${g.id}">${g.date} ${g.note||''}</option>`).join('')||'<option value="">— add a date first —</option>'}
+const gd=document.getElementById('genDate');gd.innerHTML=S.dates.map(g=>`<option value="${g.id}">${g.date} ${g.note||''} [${g.mode||S.mode||'TW'}]</option>`).join('')||'<option value="">— add a date first —</option>'}
 // BRIGADES
 document.getElementById('addBrigBtn').onclick=()=>{const n=document.getElementById('brigName').value||'New Brigade';S.brigades.push({id:uid(),name:n,employer:document.getElementById('brigEmployer').value||'Independent',cbills:5000000,inventory:[],roster:[],active:[],dropship:true});save();renderAll()};
 function renderBrigs(){const el=document.getElementById('brigList');el.innerHTML='';
@@ -110,8 +119,8 @@ const mechValue=b.inventory.reduce((s,m)=>s+(+m.cb||0),0);
 let tot=S.mode==='TW'?b.active.filter(a=>a.on).reduce((s,a)=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);return s+(m?adjBV(m.bv,p?p.g:4,p?p.p:5):0)},0):b.active.filter(a=>a.on).reduce((s,a)=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);return s+(m?m.pv+(p?pvSkill(p.g,p.p)-18:0):0)},0);
 d.innerHTML=`<div class="row"><b style="font-family:Orbitron">${b.name}</b><span class="pill">${b.employer}</span><span>Original Investment: <input type="number" value="${b.cbills}" data-cb="${b.id}" style="width:130px"></span><span>Mechs value: <b>${mechValue.toLocaleString()} C-Bills</b></span><span>Upkeep/mo: <b>${upkeep(b).toLocaleString()} C</b></span><span>Deployed: <b>${tot.toLocaleString()} ${S.mode==='TW'?'BV':'PV'}</b></span><button class="btn small" data-del="${b.id}">Delete</button></div>
 <div class="grid2"><div><h4>Inventory (Mechs) <span class="hint">${MECHS.length.toLocaleString()} available</span></h4><div class="row"><input placeholder="🔍 Search ${MECHS.length.toLocaleString()} mechs…" data-msearch="${b.id}" style="flex:1;min-width:140px"><button class="btn small" data-addm="${b.id}">+ Add selected</button></div><div class="row"><select data-msel="${b.id}" style="width:100%">${MECHS.slice(0,50).map(m=>`<option value="${m.n}">${m.ico} ${m.n} — ${val(m)}${m.yr?' · '+m.yr:''}${m.rl&&m.rl!=='None'?' · '+m.rl:''}</option>`).join('')}</select></div><table><tr><th></th><th>Mech</th><th>Role</th><th>${S.mode==='TW'?'BV @4/5':'PV'}</th><th>C-Bills</th><th>Era</th><th></th></tr>${b.inventory.map(m=>`<tr><td class="mech-ico" title="${(ROLE_LABELS[roleOf(m)]||'Role: '+roleOf(m))}${flamersOf(m)>=3?` · ${flamersOf(m)} flamers`:''}">${icoFor(roleOf(m),m.wc,flamersOf(m))}</td><td>${m.n}</td><td class="hint">${(ROLE_LABELS[roleOf(m)]||roleOf(m)||'—').replace(/\s*\(.*/,'')}${flamersOf(m)>=3?' 🔥':''}</td><td>${val(m)}</td><td>${m.cb.toLocaleString()}</td><td>${eraTag(m.yr)}</td><td><button class="btn small" data-rmm="${b.id}:${m.id}">x</button></td></tr>`).join('')}</table></div>
-<div><h4>MechWarriors</h4><div class="row"><input placeholder="Name" data-pn="${b.id}"><input placeholder="G" type="number" value="4" min="0" max="8" style="width:50px" data-pg="${b.id}"><input placeholder="P" type="number" value="5" min="0" max="8" style="width:50px" data-pp="${b.id}"><button class="btn small" data-addp="${b.id}">+ Pilot</button></div><table><tr><th>Pilot</th><th>G/P</th><th>Mod</th><th></th></tr>${b.roster.map(p=>`<tr><td>${p.n}</td><td>${p.g}/${p.p}</td><td>x${bvMult(p.g,p.p)}</td><td><button class="btn small" data-rmp="${b.id}:${p.id}">x</button></td></tr>`).join('')}</table>
-<h4>Dropship Load (next game)</h4><table><tr><th>On</th><th>Mech</th><th>Pilot</th><th>Adj ${S.mode==='TW'?'BV':'PV'}</th></tr>${b.active.map((a,i)=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);const adj=m&&p?(S.mode==='TW'?adjBV(m.bv,p.g,p.p):m.pv+(pvSkill(p.g,p.p)-18)):(m?(S.mode==='TW'?m.bv:m.pv):0);return `<tr><td><input type="checkbox" ${a.on?'checked':''} data-aon="${b.id}:${i}"></td><td><select data-amech="${b.id}:${i}"><option value="">—</option>${b.inventory.map(m2=>`<option value="${m2.id}" ${m2.id===a.mech?'selected':''}>${m2.n}</option>`).join('')}</select></td><td><select data-apilot="${b.id}:${i}"><option value="">—</option>${b.roster.map(p2=>`<option value="${p2.id}" ${p2.id===a.pilot?'selected':''}>${p2.n} ${p2.g}/${p2.p}</option>`).join('')}</select></td><td>${adj.toLocaleString()}</td></tr>`}).join('')}</table><button class="btn small" data-adda="${b.id}">+ Load slot</button></div></div>`;
+<div><h4>MechWarriors</h4><div class="row"><input placeholder="Name" data-pn="${b.id}"><input placeholder="G" type="number" value="4" min="0" max="8" style="width:50px" data-pg="${b.id}"><input placeholder="P" type="number" value="5" min="0" max="8" style="width:50px" data-pp="${b.id}"><button class="btn small" data-addp="${b.id}">+ Pilot</button></div><table><tr><th>Pilot</th><th>G/P</th><th>Mod</th><th>Ticks</th><th></th></tr>${b.roster.map(p=>`<tr><td>${p.n}</td><td>${p.g}/${p.p}</td><td>x${bvMult(p.g,p.p)}</td><td>${p.ticks||0}</td><td><button class="btn small" data-rmp="${b.id}:${p.id}">x</button></td></tr>`).join('')}</table>
+<h4>Dropship Load (next game)</h4><table><tr><th>On</th><th>Mech</th><th>Pilot</th><th>Adj ${S.mode==='TW'?'BV':'PV'}</th></tr>${b.active.map((a,i)=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);const adj=m&&p?(S.mode==='TW'?adjBV(m.bv,p.g,p.p):m.pv+(pvSkill(p.g,p.p)-18)):(m?(S.mode==='TW'?m.bv:m.pv):0);return `<tr><td><input type="checkbox" ${a.on?'checked':''} data-aon="${b.id}:${i}"></td><td><select data-amech="${b.id}:${i}"><option value="">—</option>${b.inventory.map(m2=>`<option value="${m2.id}" ${m2.id===a.mech?'selected':''}>${m2.n}</option>`).join('')}</select></td><td><select data-apilot="${b.id}:${i}"><option value="">—</option>${b.roster.map(p2=>`<option value="${p2.id}" ${p2.id===a.pilot?'selected':''}>${p2.n} ${p2.g}/${p2.p}</option>`).join('')}</select></td><td>${adj.toLocaleString()}</td></tr>`}).join('')}</table><button class="btn small" data-adda="${b.id}">+ Load slot</button></div>${ocAccounting(b)}</div>`;
 el.appendChild(d)});
 // wire
 el.querySelectorAll('[data-cb]').forEach(i=>i.onchange=()=>{S.brigades.find(b=>b.id===i.dataset.cb).cbills=+i.value;save();renderBrigs()});
@@ -135,11 +144,17 @@ while(pool.length<n)pool.push(MISSIONS[Math.floor(Math.random()*MISSIONS.length)
 pool.forEach((m,idx)=>{const opfor=['Green (+0)','Regular (+5% BV)','Veteran (+12% BV, -1 enemy skill)','Elite (+20% BV, -2 skill)'][Math.floor(Math.random()*4)];
 S.scenarios.push({id:uid(),gameDateId:gid,title:`${m.t} — Op ${String(S.scenarios.length+1).padStart(2,'0')}`,type:m.t,backstory:`[${S.era}] ${m.d} Employer: ${['Federated Suns','Draconis Combine','Free Worlds League','Hinterlands militia','Independent corp'][Math.floor(Math.random()*5)]}.`,objectives:m.obj.map(o=>({id:uid(),text:o,payout:Math.round(m.pay/m.obj.length),enabled:true,by:''})),map:m.map,opfor,status:'available',salvage:{}})});
 save();renderAll();toast(`Generated ${n} scenarios`)};
+function sayText(s){const objs=(s.objectives||[]).filter(o=>o.enabled);return `${s.title}. ${s.backstory||''} ${objs.length?`Objectives: ${objs.map((o,i)=>`${i+1}. ${o.text}`).join(' ')}`:'No active objectives.'} Opposing force: ${s.opfor||'unknown'}.`}
+function sayLabel(id){const ok='speechSynthesis' in window;const sy=ok&&window.speechSynthesis.speaking,pa=ok&&window.speechSynthesis.paused;if(sayId===id&&sy&&!pa)return '⏸ Pause';if(sayId===id&&pa)return '▶ Resume';return '🔊 Read'}
+function sayToggle(id){const s=S.scenarios.find(x=>x.id===id);if(!s)return;if(!('speechSynthesis' in window)){toast('Speech reading is not supported in this browser');return}
+const synth=window.speechSynthesis;
+if(sayId===id&&(synth.speaking||synth.paused)){if(synth.paused)synth.resume();else synth.pause();renderScens();return}
+synth.cancel();const u=new SpeechSynthesisUtterance(sayText(s));u.onend=u.onerror=()=>{sayId=null;try{renderScens()}catch(e){}};sayId=id;synth.speak(u);renderScens()}
 function renderScens(){const el=document.getElementById('scenarioList');el.innerHTML='';
 let list=S.scenarios.filter(s=>s.status!=='discarded');
 if(!document.getElementById('includeOld').checked){const gid=document.getElementById('genDate').value;list=list.filter(s=>s.gameDateId===gid)}
 list.forEach(s=>{const d=document.createElement('div');d.className='scen'+(s.status==='active'?' active':'');
-d.innerHTML=`<span class="pill">${s.status.toUpperCase()}</span> <span class="hint">${s.gameDateId?'':''}</span><h3>${s.title}</h3><p>${s.backstory}</p><p class="hint">OpFor: ${s.opfor} | Map ${s.map.size} ${s.map.loc}</p><div class="row"><button class="btn small" data-view="${s.id}">Inspect</button><button class="btn small" data-act="${s.id}">Activate</button><button class="btn small" data-dis="${s.id}">Remove</button></div>`;
+d.innerHTML=`<span class="pill">${s.status.toUpperCase()}</span> <span class="hint">${s.gameDateId?'':''}</span><h3>${s.title}</h3><p>${s.backstory}</p><p class="hint">OpFor: ${s.opfor} | Map ${s.map.size} ${s.map.loc}</p><div class="row"><button class="btn small" data-view="${s.id}">Inspect</button><button class="btn small" data-act="${s.id}">Activate</button><button class="btn small" data-dis="${s.id}">Remove</button><button class="btn small" data-say="${s.id}">${sayLabel(s.id)}</button></div>`;
 el.appendChild(d)});
 const removed=S.scenarios.filter(s=>s.status==='discarded');
 if(removed.length){const bin=document.createElement('div');bin.className='card';
@@ -147,6 +162,7 @@ bin.innerHTML=`<h3>Removed scenarios (${removed.length})</h3><p class="hint">Rem
 removed.forEach(s=>{const r=document.createElement('div');r.className='date-row';
 r.innerHTML=`<b>${s.title}</b> <span class="pill cancel">REMOVED</span> <span class="hint">${s.type||''}</span><div class="row"><button class="btn small" data-res="${s.id}">Restore</button><button class="btn small" data-sdel="${s.id}">Delete</button></div>`;bin.appendChild(r)});
 el.appendChild(bin)}
+el.querySelectorAll('[data-say]').forEach(b=>b.onclick=()=>sayToggle(b.dataset.say));
 el.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{S.selScenario=b.dataset.view;save();renderInspector()});
 el.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>{const t=S.scenarios.find(y=>y.id===b.dataset.act);if(!t)return;S.scenarios.forEach(x=>{if(x.gameDateId===t.gameDateId&&x.status==='active')x.status='available'});t.status='active';S.activePredrop=t.id;save();renderAll()});
 el.querySelectorAll('[data-dis]').forEach(b=>b.onclick=()=>{const s=S.scenarios.find(x=>x.id===b.dataset.dis);if(!s)return;if(!confirm(`Remove scenario '${s.title}' from the available list? You can restore or permanently delete it under Removed scenarios.`))return;s.status='discarded';if(S.selScenario===s.id)S.selScenario=null;if(S.activePredrop===s.id)S.activePredrop=null;save();renderAll()});
@@ -155,10 +171,11 @@ el.querySelectorAll('[data-sdel]').forEach(b=>b.onclick=()=>{const s=S.scenarios
 renderInspector();renderPredropSel()}
 function renderInspector(){const el=document.getElementById('inspector');const s=S.scenarios.find(x=>x.id===S.selScenario);
 if(!s){el.innerHTML='<p class="hint">Select a scenario.</p>';return}
-el.innerHTML=`<h3>${s.title}</h3><p>${s.backstory}</p><p><b>OpFor modifier:</b> ${s.opfor}</p>
+el.innerHTML=`<h3>${s.title} <button class="btn small" data-say="${s.id}">${sayLabel(s.id)}</button></h3><p>${s.backstory}</p><p><b>OpFor modifier:</b> ${s.opfor}</p>
 <p><b>Map:</b> ${s.map.size} — ${s.map.loc} — ${s.map.ter} — ${s.map.cond}</p>
 <h4>Objectives (accept / enable)</h4><table><tr><th>✓</th><th>Objective</th><th>Payout C</th><th>Accepted by</th></tr>${s.objectives.map(o=>`<tr><td><input type="checkbox" ${o.enabled?'checked':''} data-oen="${s.id}:${o.id}"></td><td>${o.text}</td><td><input type="number" value="${o.payout}" style="width:110px" data-opay="${s.id}:${o.id}"></td><td><select data-oby="${s.id}:${o.id}"><option value="">—</option>${S.brigades.map(b=>`<option ${o.by===b.id?'selected':''} value="${b.id}">${b.name}</option>`).join('')}</select></td></tr>`).join('')}</table>
 <h4>Salvage Rights %</h4>${S.brigades.map(b=>`<div class="row"><span>${b.name}</span><input type="range" min="0" max="100" value="${s.salvage[b.id]||30}" data-sal="${s.id}:${b.id}"><span data-salv="${s.id}:${b.id}">${s.salvage[b.id]||30}%</span></div>`).join('')||'<p class="hint">No brigades yet.</p>'}`;
+el.querySelectorAll('[data-say]').forEach(b=>b.onclick=()=>sayToggle(b.dataset.say));
 el.querySelectorAll('[data-oen]').forEach(c=>c.onchange=()=>{const[si,oi]=c.dataset.oen.split(':');S.scenarios.find(x=>x.id===si).objectives.find(o=>o.id===oi).enabled=c.checked;save()});
 el.querySelectorAll('[data-opay]').forEach(c=>c.onchange=()=>{const[si,oi]=c.dataset.opay.split(':');S.scenarios.find(x=>x.id===si).objectives.find(o=>o.id===oi).payout=+c.value;save()});
 el.querySelectorAll('[data-oby]').forEach(c=>c.onchange=()=>{const[si,oi]=c.dataset.oby.split(':');S.scenarios.find(x=>x.id===si).objectives.find(o=>o.id===oi).by=c.value;save()});
@@ -168,23 +185,126 @@ el.querySelectorAll('[data-sal]').forEach(c=>c.oninput=()=>{const[si,bi]=c.datas
 function renderPredropSel(){const sel=document.getElementById('predropSelect');const act=S.scenarios.filter(s=>s.status==='active'||s.status==='available');sel.innerHTML=act.map(s=>`<option value="${s.id}" ${s.id===S.activePredrop?'selected':''}>${s.title} [${s.status}]</option>`).join('')||'<option value="">—</option>';if(!S.activePredrop&&act[0])S.activePredrop=act[0].id;sel.onchange=()=>{S.activePredrop=sel.value;save();renderPredrop()};renderPredrop()}
 document.getElementById('refreshPredrop').onclick=()=>renderPredrop();
 function renderPredrop(){const el=document.getElementById('predropOut');const s=S.scenarios.find(x=>x.id===S.activePredrop);if(!s){el.innerHTML='<p class="hint">No scenario selected.</p>';return}
-let rows='';let grandTW=0,grandAS=0;
+let rows='';let grandTW=0,grandAS=0;const M=scenMode(s);
 S.brigades.forEach(b=>{b.active.filter(a=>a.on).forEach(a=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);if(!m)return;
-const base=S.mode==='TW'?m.bv:m.pv;const adj=S.mode==='TW'&&p?adjBV(m.bv,p.g,p.p):(!p?base:(m.pv+(pvSkill(p.g,p.p)-18)));
-const opBonus=S.mode==='TW'?Math.round(adj*0.08):Math.round(adj*0.05); // OpFor + conditions transparent bump
-const fin=adj+opBonus;grandTW+=S.mode==='TW'?fin:0;grandAS+=S.mode==='TW'?0:fin;
-rows+=`<tr><td>${b.name}</td><td class="mech-ico">${m.ico}</td><td>${m.n}</td><td>${p?p.n+' '+p.g+'/'+p.p:'— (4/5)'}</td><td>${base.toLocaleString()}</td><td>${S.mode==='TW'?'x'+(p?bvMult(p.g,p.p):1):(p?'PV skill '+pvSkill(p.g,p.p):'PV 18')}</td><td>+${opBonus} OpFor/terrain</td><td><b>${fin.toLocaleString()}</b></td></tr>`})});
+const base=M==='TW'?m.bv:m.pv;const adj=M==='TW'&&p?adjBV(m.bv,p.g,p.p):(!p?base:(m.pv+(pvSkill(p.g,p.p)-18)));
+const opBonus=M==='TW'?Math.round(adj*0.08):Math.round(adj*0.05); // OpFor + conditions transparent bump
+const fin=adj+opBonus;grandTW+=M==='TW'?fin:0;grandAS+=M==='TW'?0:fin;
+rows+=`<tr><td>${b.name}</td><td class="mech-ico">${m.ico}</td><td>${m.n}</td><td>${p?p.n+' '+p.g+'/'+p.p:'— (4/5)'}</td><td>${base.toLocaleString()}</td><td>${M==='TW'?'x'+(p?bvMult(p.g,p.p):1):(p?'PV skill '+pvSkill(p.g,p.p):'PV 18')}</td><td>+${opBonus} OpFor/terrain</td><td><b>${fin.toLocaleString()}</b></td></tr>`})});
 const assetBV=S.mode==='TW'?1200:28;
-el.innerHTML=`<h3>${s.title} — ${S.mode==='TW'?'Total Warfare (BV)':'Alpha Strike (PV)'}</h3>
+el.innerHTML=`<h3>${s.title} — ${M==='TW'?'Total Warfare (BV)':'Alpha Strike (PV)'} <span class="hint">(game date mode)</span></h3>
 <p><b>Setup:</b> Map ${s.map.size} at ${s.map.loc} (${s.map.ter}). ${s.map.cond}. OpFor: ${s.opfor}. GM assets: Sensor post (BV ${assetBV}), convoy trucks x2 — place per objectives before first turn.</p>
 <table><tr><th>Brigade</th><th></th><th>Mech</th><th>Pilot (recorded)</th><th>Base</th><th>Skill mod</th><th>Scenario mod</th><th>Deployed</th></tr>${rows||'<tr><td colspan=8>No active forces. Activate brigades first.</td></tr>'}</table>
-<p><b>Force total: ${(S.mode==='TW'?grandTW:grandAS).toLocaleString()} ${S.mode==='TW'?'BV':'PV'}</b> (base + pilot skill + transparent OpFor/condition bump). Base skills unchanged on roster — modifiers apply to this game only.</p>
+<p><b>Force total: ${(M==='TW'?grandTW:grandAS).toLocaleString()} ${M==='TW'?'BV':'PV'}</b> (base + pilot skill + transparent OpFor/condition bump). Base skills unchanged on roster — modifiers apply to this game only.</p>
 <h4>Payouts</h4><table><tr><th>Objective</th><th>Enabled</th><th>By</th><th>C-Bills</th></tr>${s.objectives.map(o=>`<tr><td>${o.text}</td><td>${o.enabled?'yes':'no'}</td><td>${(S.brigades.find(b=>b.id===o.by)||{}).name||'—'}</td><td>${o.payout.toLocaleString()}</td></tr>`).join('')}</table>`}
+// OUTCOMES — GM records the result of a game per scenario+brigade.
+// Commit applies: awarded payouts & scrap & minus repair to brigade funds,
+// mech salvage into the assigned brigade's inventory, pilot deaths (removed
+// from roster) and gunnery ticks. Edit/Delete reverses the old application.
+function ocNew(){return {id:uid(),gameDateId:(S.dates[0]||{}).id||'',scenarioId:'',brigadeId:(S.brigades[0]||{}).id||'',failed:false,repair:0,note:'',rows:[],pay:[],payScen:'',salvage:[]}}
+function ocScens(){return OD?S.scenarios.filter(s=>s.gameDateId===OD.gameDateId&&s.status!=='discarded'):[]}
+function ocSync(){if(!OD)return;const g=id=>document.getElementById(id);if(!g('ocDate'))return;
+OD.gameDateId=g('ocDate').value;OD.brigadeId=g('ocBrig').value;OD.failed=g('ocFailed').checked;OD.repair=+g('ocRepair').value||0;OD.note=g('ocNote').value;
+const sc=g('ocScen').value;if(sc!==OD.scenarioId){OD.scenarioId=sc;OD.pay=[];OD.payScen=''}
+OD.rows.forEach(r=>{const d=document.querySelector(`[data-rdead="${r.rid}"]`);if(!d)return;r.dead=d.checked;r.hits=+document.querySelector(`[data-rhits="${r.rid}"]`).value||0;r.ejected=document.querySelector(`[data-reject="${r.rid}"]`).checked;r.ticks=+document.querySelector(`[data-rticks="${r.rid}"]`).value||0});
+OD.pay.forEach(w=>{const a=document.querySelector(`[data-pamt="${w.oid}"]`),c=document.querySelector(`[data-paw="${w.oid}"]`);if(a)w.amount=+a.value||0;if(c)w.awarded=c.checked});
+OD.salvage.forEach(sv=>{const n=document.querySelector(`[data-sname="${sv.id}"]`),c=document.querySelector(`[data-scb="${sv.id}"]`),t=document.querySelector(`[data-sto="${sv.id}"]`);if(n)sv.name=n.value;if(c)sv.cb=+c.value||0;if(t)sv.to=t.value});
+const ms=document.querySelector('[data-ocmsel]');if(ms)OD._msearch=ms.dataset.ocmsel}
+function ocPull(){ocSync();const b=S.brigades.find(x=>x.id===OD.brigadeId);if(!b)return toast('Pick a brigade first');
+OD.rows=b.active.filter(a=>a.on&&a.mech).map(a=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);return {rid:uid(),pilotId:p?p.id:'',name:p?p.n:'— (no pilot)',g:p?p.g:4,p:p?p.p:5,mechId:m?m.id:'',mechName:m?m.n:'—',dead:false,hits:0,ejected:false,ticks:0}});
+if(!OD.rows.length)return toast('No loaded dropship slots carry a mech');
+const sc=S.scenarios.find(x=>x.id===OD.scenarioId);if(sc){OD.pay=sc.objectives.map(o=>({oid:o.id,text:o.text,amount:o.payout,awarded:o.enabled}));OD.payScen=sc.id}
+save();renderOutcomes();toast(`Pulled ${OD.rows.length} pilot/mech rows`+(sc?' + objective payouts':''))}
+function applyOutcome(oc,dir){
+const bg=S.brigades.find(x=>x.id===oc.brigadeId);
+const applied=dir>0?{funds:{},mechs:[]}:oc.applied;
+const addFunds=(bid,amt)=>{const b=S.brigades.find(x=>x.id===bid);if(!b||!amt)return;if(dir>0)applied.funds[bid]=(applied.funds[bid]||0)+amt;b.cbills=Math.round((+b.cbills||0)+dir*amt)};
+if(bg)oc.rows.forEach(r=>{let p=bg.roster.find(x=>x.id===r.pilotId)||bg.roster.find(x=>x.n===r.name);
+if(dir>0&&r.dead){if(p)bg.roster=bg.roster.filter(x=>x!==p);return}
+if(dir<0&&r.dead&&!bg.roster.some(x=>x.n===r.name)){p={id:uid(),n:r.name,g:r.g,p:r.p};bg.roster.push(p)}
+if(p&&!r.dead)p.ticks=Math.max(0,(+p.ticks||0)+dir*(+r.ticks||0))});
+if(!oc.failed&&bg)addFunds(bg.id,oc.pay.filter(w=>w.awarded).reduce((s,w)=>s+(+w.amount||0),0));
+if(bg)addFunds(bg.id,-(+oc.repair||0));
+oc.salvage.forEach(sv=>{const to=sv.to||oc.brigadeId;
+if(sv.kind==='scrap'){addFunds(to,+sv.cb||0);return}
+const tb=S.brigades.find(x=>x.id===to);
+if(dir>0&&tb){const cat=MECHS.find(v=>v.n===sv.name);const {canon,...rest}=cat||{n:sv.name,bv:800,pv:20,cb:+sv.cb||3000000,tons:null,yr:null,wc:'Medium',rl:'None'};
+const m={id:uid(),...rest,cb:+sv.cb||rest.cb||0};m.ico=m.ico||icoFor(m.rl,m.wc,m.fm);tb.inventory.push(m);applied.mechs.push({brig:to,inv:m.id})}
+if(dir<0)(applied.mechs||[]).filter(a=>a.brig===to).forEach(a=>{const b2=S.brigades.find(x=>x.id===a.brig);if(b2)b2.inventory=b2.inventory.filter(m=>m.id!==a.inv)})});
+if(dir>0)oc.applied=applied}
+function commitOutcome(){ocSync();
+const sc=S.scenarios.find(x=>x.id===OD.scenarioId);if(!sc)return toast('Pick a scenario');
+const bg=S.brigades.find(x=>x.id===OD.brigadeId);if(!bg)return toast('Pick a brigade');
+if(editingOutcomeId){const old=S.outcomes.find(x=>x.id===editingOutcomeId);if(old)applyOutcome(old,-1);S.outcomes=S.outcomes.filter(x=>x.id!==editingOutcomeId)}
+const oc={id:OD.id,gameDateId:OD.gameDateId,dateStr:(S.dates.find(g=>g.id===OD.gameDateId)||{}).date||'',scenarioId:sc.id,scenarioTitle:sc.title,brigadeId:bg.id,brigadeName:bg.name,failed:OD.failed,repair:+OD.repair||0,note:OD.note,rows:JSON.parse(JSON.stringify(OD.rows)),pay:JSON.parse(JSON.stringify(OD.pay)),salvage:JSON.parse(JSON.stringify(OD.salvage))};
+applyOutcome(oc,+1);S.outcomes.push(oc);
+const dead=oc.rows.filter(r=>r.dead).length;
+OD=ocNew();editingOutcomeId=null;save();renderAll();
+toast(`Outcome committed to '${bg.name}'${dead?` — ${dead} pilot(s) KIA`:''} — see brigade accounting`)}
+function ocMechHits(){const q=(OD._msearch||'').toLowerCase().trim();return (q?MECHS.filter(m=>m.n.toLowerCase().includes(q)):MECHS).slice(0,100)}
+function renderOutcomes(){if(!Array.isArray(S.outcomes))S.outcomes=[];
+ocSync();
+if(!OD)OD=ocNew();
+const el=document.getElementById('outcomeForm'),list=document.getElementById('outcomeList');if(!el)return;
+if(!S.dates.some(g=>g.id===OD.gameDateId))OD.gameDateId=(S.dates[0]||{}).id||'';
+if(!S.brigades.some(b=>b.id===OD.brigadeId))OD.brigadeId=(S.brigades[0]||{}).id||'';
+let scs=ocScens();if(!scs.some(s=>s.id===OD.scenarioId))OD.scenarioId=(scs[0]||{}).id||'';
+const sc=S.scenarios.find(x=>x.id===OD.scenarioId);
+if(sc&&OD.payScen!==sc.id){OD.pay=sc.objectives.map(o=>({oid:o.id,text:o.text,amount:o.payout,awarded:o.enabled}));OD.payScen=sc.id}
+const brigOpts=S.brigades.map(b=>`<option value="${b.id}" ${b.id===OD.brigadeId?'selected':''}>${b.name}</option>`).join('')||'<option value="">— add a brigade first —</option>';
+el.innerHTML=`<div class="row wrap"><label>Game Date <select id="ocDate">${S.dates.map(g=>`<option value="${g.id}" ${g.id===OD.gameDateId?'selected':''}>${g.date} ${g.note||''} [${g.mode||S.mode||'TW'}]</option>`).join('')||'<option value="">— add a date first —</option>'}</select></label>
+<label>Scenario <select id="ocScen">${scs.map(s=>`<option value="${s.id}" ${s.id===OD.scenarioId?'selected':''}>${s.title} [${s.status}]</option>`).join('')||'<option value="">— no scenarios for this date —</option>'}</select></label>
+<label>Brigade <select id="ocBrig">${brigOpts}</select></label>
+<button class="btn small" data-ocnew>New</button><button class="btn small" data-ocpull>Pull dropship load</button></div>
+<div class="row wrap"><label class="check"><input type="checkbox" id="ocFailed" ${OD.failed?'checked':''}> Contract FAILED (no payouts)</label>
+<label>Repair/Refit C <input type="number" id="ocRepair" value="${OD.repair}" style="width:130px"></label>
+<input id="ocNote" placeholder="GM note e.g. glorious victory" value="${(OD.note||'').replace(/"/g,'&quot;')}" style="flex:1;min-width:160px"></div>
+<h4>MechWarriors & Mechs</h4><table><tr><th>Pilot</th><th>Mech</th><th>Dead</th><th>Hits</th><th>Ejected</th><th>Gun ticks</th><th></th></tr>
+${OD.rows.map(r=>`<tr><td>${r.name} <span class="hint">${r.g}/${r.p}</span></td><td>${r.mechName}</td><td><input type="checkbox" data-rdead="${r.rid}" ${r.dead?'checked':''}></td><td><input type="number" min="0" max="20" value="${r.hits}" style="width:60px" data-rhits="${r.rid}"></td><td><input type="checkbox" data-reject="${r.rid}" ${r.ejected?'checked':''}></td><td><input type="number" min="0" max="20" value="${r.ticks}" style="width:60px" data-rticks="${r.rid}"></td><td><button class="btn small" data-rdel="${r.rid}">x</button></td></tr>`).join('')||'<tr><td colspan=7 class="hint">No rows — pick a brigade and press “Pull dropship load”.</td></tr>'}</table>
+<h4>Objective payouts ${OD.failed?'<span class="pill cancel">FAILED — none awarded</span>':''}</h4><table><tr><th>Objective</th><th>C-Bills</th><th>Awarded</th></tr>
+${OD.pay.map(w=>`<tr><td>${w.text}</td><td><input type="number" value="${w.amount}" style="width:130px" data-pamt="${w.oid}"></td><td><input type="checkbox" data-paw="${w.oid}" ${w.awarded&&!OD.failed?'checked':''} ${OD.failed?'disabled':''}></td></tr>`).join('')||'<tr><td colspan=3 class="hint">No objectives on this scenario.</td></tr>'}</table>
+<h4>Salvage</h4><div class="row wrap"><input placeholder="🔍 Search catalog…" data-ocmsearch value="${(OD._msearch||'').replace(/"/g,'&quot;')}" style="flex:1;min-width:140px"><select data-ocmsel style="width:100%">${ocMechHits().map(m=>`<option value="${m.n.replace(/"/g,'&quot;')}">${m.n} — ${(+m.cb||0).toLocaleString()} C</option>`).join('')}</select><button class="btn small" data-ocaddmech>+ Mech</button><button class="btn small" data-ocaddscrap>+ Scrap</button></div>
+<table><tr><th>Salvage</th><th>C-Bills</th><th>To brigade</th><th></th></tr>
+${OD.salvage.map(sv=>`<tr><td>${sv.kind==='scrap'?'🧱':''} <input value="${sv.name.replace(/"/g,'&quot;')}" data-sname="${sv.id}" style="min-width:140px"></td><td><input type="number" value="${sv.cb}" style="width:130px" data-scb="${sv.id}"></td><td><select data-sto="${sv.id}">${S.brigades.map(b=>`<option value="${b.id}" ${(sv.to||OD.brigadeId)===b.id?'selected':''}>${b.name}</option>`).join('')}</select></td><td><button class="btn small" data-sdel="${sv.id}">x</button></td></tr>`).join('')||'<tr><td colspan=4 class="hint">No salvage — add a mech unit or generic scrap.</td></tr>'}</table>
+<div class="row"><button class="btn glow" data-occommit>${editingOutcomeId?'Save changes':'Commit outcome'}</button>${editingOutcomeId?'<button class="btn small" data-occancel>Cancel edit</button>':''}</div>`;
+el.querySelector('#ocDate').onchange=()=>{ocSync();OD.scenarioId='';OD.pay=[];OD.payScen='';save();renderOutcomes()};
+el.querySelector('#ocScen').onchange=()=>{ocSync();save();renderOutcomes()};
+el.querySelector('#ocBrig').onchange=()=>{ocSync();OD.rows=[];save();renderOutcomes()};
+el.querySelector('#ocFailed').onchange=()=>{ocSync();save();renderOutcomes()};
+el.querySelector('[data-ocnew]').onclick=()=>{OD=ocNew();editingOutcomeId=null;save();renderOutcomes()};
+el.querySelector('[data-ocpull]').onclick=ocPull;
+el.querySelector('[data-occommit]').onclick=commitOutcome;
+const cancel=el.querySelector('[data-occancel]');if(cancel)cancel.onclick=()=>{OD=ocNew();editingOutcomeId=null;save();renderOutcomes()};
+el.querySelectorAll('[data-rdel]').forEach(b=>b.onclick=()=>{ocSync();OD.rows=OD.rows.filter(r=>r.rid!==b.dataset.rdel);save();renderOutcomes()});
+el.querySelectorAll('[data-sdel]').forEach(b=>b.onclick=()=>{ocSync();OD.salvage=OD.salvage.filter(sv=>sv.id!==b.dataset.sdel);save();renderOutcomes()});
+el.querySelector('[data-ocmsearch]').oninput=e=>{ocSync();OD._msearch=e.target.value;const sel=el.querySelector('[data-ocmsel]');sel.innerHTML=ocMechHits().map(m=>`<option value="${m.n.replace(/"/g,'&quot;')}">${m.n} — ${(+m.cb||0).toLocaleString()} C</option>`).join('')};
+el.querySelector('[data-ocaddmech]').onclick=()=>{ocSync();const n=el.querySelector('[data-ocmsel]').value;const cat=MECHS.find(v=>v.n===n)||MECHS[0];if(!cat)return toast('No mech selected');OD.salvage.push({id:uid(),kind:'mech',name:cat.n,cb:+cat.cb||0,to:OD.brigadeId});save();renderOutcomes()};
+el.querySelector('[data-ocaddscrap]').onclick=()=>{ocSync();OD.salvage.push({id:uid(),kind:'scrap',name:'scrap',cb:0,to:OD.brigadeId});save();renderOutcomes()};
+list.innerHTML=S.outcomes.length?S.outcomes.map(o=>{const pay=o.failed?0:o.pay.filter(w=>w.awarded).reduce((s,w)=>s+(+w.amount||0),0);
+const dead=o.rows.filter(r=>r.dead).map(r=>r.name).join(', ');
+return `<div class="date-row"><b>${o.scenarioTitle||'?'}</b> <span class="hint">${o.dateStr||''} → ${o.brigadeName||''}</span> ${o.failed?'<span class="pill cancel">FAILED</span>':'<span class="pill contemp">COMPLETE</span>'}
+<div class="hint">Payouts +${pay.toLocaleString()} C · Repair/Refit −${(+o.repair||0).toLocaleString()} C · Salvage: ${(o.salvage||[]).map(sv=>`${sv.name} (${(+sv.cb||0).toLocaleString()} C → ${(S.brigades.find(b=>b.id===(sv.to||o.brigadeId))||{name:'?'}).name})`).join(', ')||'none'}${dead?` · ☠ ${dead}`:''}</div>
+<div class="row"><button class="btn small" data-ocedit="${o.id}">Edit</button><button class="btn small" data-ocdel="${o.id}">Delete</button></div></div>`}).join(''):'<p class="hint">No committed outcomes yet.</p>';
+list.querySelectorAll('[data-ocedit]').forEach(b=>b.onclick=()=>{const o=S.outcomes.find(x=>x.id===b.dataset.ocedit);if(!o)return;OD=JSON.parse(JSON.stringify(o));OD.payScen=OD.scenarioId;editingOutcomeId=o.id;save();renderOutcomes();toast(`Editing outcome for '${o.scenarioTitle}' — Commit saves, reversing the old application first`)});
+list.querySelectorAll('[data-ocdel]').forEach(b=>b.onclick=()=>{const o=S.outcomes.find(x=>x.id===b.dataset.ocdel);if(!o)return;if(!confirm(`Delete the committed outcome '${o.scenarioTitle}' for '${o.brigadeName}'? Funds, salvage and pilot changes will be reversed.`))return;applyOutcome(o,-1);S.outcomes=S.outcomes.filter(x=>x.id!==o.id);if(editingOutcomeId===o.id){editingOutcomeId=null;OD=ocNew()}save();renderAll();toast('Outcome deleted and reversed')})}
+// Per-brigade accounting card for committed outcomes
+function ocAccounting(b){const ocs=S.outcomes.filter(o=>o.brigadeId===b.id||(o.salvage||[]).some(sv=>(sv.to||o.brigadeId)===b.id));
+if(!ocs.length)return '';
+return `<h4>Outcome Accounting (${ocs.length})</h4>`+ocs.map(o=>{
+const own=o.brigadeId===b.id;
+const pay=own&&!o.failed?o.pay.filter(w=>w.awarded).reduce((s,w)=>s+(+w.amount||0),0):0;
+const rep=own?(+o.repair||0):0;
+const sv=o.salvage.filter(sv=>(sv.to||o.brigadeId)===b.id);
+const net=(o.applied&&o.applied.funds&&o.applied.funds[b.id])||0;
+const fates=own?o.rows.filter(r=>r.dead||(+r.hits)>0||r.ejected||(+r.ticks)>0).map(r=>`${r.name} (${r.mechName}): ${[r.dead?'☠ KIA':'',(+r.hits)?r.hits+' hits':'',r.ejected?'ejected':'',(+r.ticks)?'+'+r.ticks+' gun ticks':''].filter(Boolean).join(', ')}`).join(' | '):'';
+return `<div class="date-row"><b>${o.scenarioTitle||'?'}</b> <span class="hint">${o.dateStr||''}</span> ${o.failed?'<span class="pill cancel">FAILED</span>':'<span class="pill contemp">COMPLETE</span>'}
+<div class="hint">Payouts +${pay.toLocaleString()} C · Repair/Refit −${rep.toLocaleString()} C${sv.length?' · Salvage: '+sv.map(sv=>`${sv.name} (${(+sv.cb||0).toLocaleString()} C)`).join(', '):''} · <b>Net to funds ${net>=0?'+':''}${net.toLocaleString()} C</b></div>
+${fates?`<div class="hint">Pilots — ${fates}</div>`:''}${o.note?`<div class="hint">“${o.note}”</div>`:''}</div>`}).join('')}
 // EXPORT CSV (Google Sheets friendly)
 document.getElementById('exportBtn').onclick=()=>{
-const s=S.scenarios.find(x=>x.id===S.activePredrop)||S.scenarios.find(x=>x.status==='active');
-let csv='BT Quick Contract Export,'+new Date().toISOString()+',Era: '+S.era+',Mode: '+S.mode+'\n\nFORCES,Brigade,Mech,Pilot,G/P,Base,Deployed\n';
-S.brigades.forEach(b=>{b.active.filter(a=>a.on).forEach(a=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);if(!m)return;const base=S.mode==='TW'?m.bv:m.pv;const dep=S.mode==='TW'?(p?adjBV(m.bv,p.g,p.p):m.bv):(p?m.pv+(pvSkill(p.g,p.p)-18):m.pv);csv+=`FORCE,${b.name},${m.n},${p?p.n:''},${p?p.g+'/'+p.p:'4/5'},${base},${dep}\n`})});
+const s=S.scenarios.find(x=>x.id===S.activePredrop)||S.scenarios.find(x=>x.status==='active');const M=scenMode(s);
+let csv='BT Quick Contract Export,'+new Date().toISOString()+',Era: '+S.era+',Mode: '+M+'\n\nFORCES,Brigade,Mech,Pilot,G/P,Base,Deployed\n';
+S.brigades.forEach(b=>{b.active.filter(a=>a.on).forEach(a=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);if(!m)return;const base=M==='TW'?m.bv:m.pv;const dep=M==='TW'?(p?adjBV(m.bv,p.g,p.p):m.bv):(p?m.pv+(pvSkill(p.g,p.p)-18):m.pv);csv+=`FORCE,${b.name},${m.n},${p?p.n:''},${p?p.g+'/'+p.p:'4/5'},${base},${dep}\n`})});
 csv+='\nOBJECTIVES,Objective,Enabled,AcceptedBy,Payout\n';if(s)s.objectives.forEach(o=>{csv+=`OBJECTIVE,"${o.text}",${o.enabled},${(S.brigades.find(b=>b.id===o.by)||{}).name||''},${o.payout}\n`});
 csv+=`\nMAP,Size,Location,Terrain,Conditions\nMAP,"${s?s.map.size:''}","${s?s.map.loc:''}","${s?s.map.ter:''}","${s?s.map.cond:''}"\n`;
 const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bt-scenario.csv';a.click();toast('CSV downloaded — import into Google Sheets')};
@@ -306,7 +426,7 @@ else if(k==='MAP'&&c.length>=5)res.map={size:c[1],loc:c[2],ter:c[3],cond:c[4]};
 else if(k==='BT QUICK CONTRACT EXPORT'){res.meta.exported=c[1]||'';const e=(c[2]||'').replace(/^Era:\s*/,'');if(e)res.meta.era=e;const m=(c[3]||'').replace(/^Mode:\s*/,'');if(m)res.meta.mode=m}});
 return res}
 document.getElementById('importBtn').onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('tab-import').classList.add('active');refreshImportDates()};
-function refreshImportDates(){const sel=document.getElementById('importDate');if(!sel)return;const cur=sel.value;sel.innerHTML=S.dates.map(g=>`<option value="${g.id}">${g.date} ${g.note||''}</option>`).join('')||'<option value="">— add a game date first —</option>';if(cur&&[...sel.options].some(o=>o.value===cur))sel.value=cur}
+function refreshImportDates(){const sel=document.getElementById('importDate');if(!sel)return;const cur=sel.value;sel.innerHTML=S.dates.map(g=>`<option value="${g.id}">${g.date} ${g.note||''} [${g.mode||S.mode||'TW'}]</option>`).join('')||'<option value="">— add a game date first —</option>';if(cur&&[...sel.options].some(o=>o.value===cur))sel.value=cur}
 function renderImportPreview(){const el=document.getElementById('importPreview');const btn=document.getElementById('applyImportBtn');if(!parsedImport){el.innerHTML='<p class="hint">No CSV parsed yet.</p>';btn.disabled=true;return}
 const p=parsedImport;btn.disabled=!(p.forces.length||p.objectives.length);
 el.innerHTML=`<p><b>${p.forces.length}</b> force(s), <b>${p.objectives.length}</b> objective(s)${p.meta.era?`, era ${p.meta.era}`:''}${p.meta.mode?`, mode ${p.meta.mode}`:''}.</p>
@@ -332,12 +452,12 @@ save();renderAll();renderImportPreview();toast('Import applied — see Brigades 
 // SETTINGS
 function renderMechRef(){const ref=document.getElementById('mechRef');if(!ref)return;const show=MECHS.slice(0,120);ref.innerHTML=`<p class="hint">Source: ${MECH_SOURCE}. Showing ${show.length} of ${MECHS.length.toLocaleString()} — use Brigade search to find any unit. Icon = battlefield role; weight class is the fallback.</p>`+show.map(m=>`<div class="pill" title="${ROLE_LABELS[m.rl]||m.rl||'Role unknown'} — ${m.wc||''} ${m.tons||''}t ${m.yr||''}">${m.ico} ${m.n} ${m.bv}BV/${m.pv}PV</div>`).join('');const h=ref.previousElementSibling;if(h&&h.tagName==='H3')h.textContent=`Mech Catalog — ${MECHS.length.toLocaleString()} units (BV/PV/C-Bills)`}
 renderMechRef();
-document.getElementById('seedBtn').onclick=()=>{if(!confirm('Load demo campaign?'))return;S.dates=[{id:uid(),date:new Date().toISOString().slice(0,10),note:'Shop Night — demo',status:'open',locked:false}];
+document.getElementById('seedBtn').onclick=()=>{if(!confirm('Load demo campaign?'))return;S.dates=[{id:uid(),date:new Date().toISOString().slice(0,10),note:'Shop Night — demo',status:'open',locked:false,mode:S.mode||'TW'}];
 const pick=n=>{const m=MECHS.find(v=>v.n.toLowerCase().includes(n.toLowerCase()))||MECHS[0];const {canon,...rest}=m;return {id:uid(),...rest}};
 const b1={id:uid(),name:'Iron Jackals',employer:'Federated Suns',cbills:5200000,inventory:[pick('Marauder MAD-3R'),pick('Hunchback HBK-4G')],roster:[{id:uid(),n:'Vera "Hammer" Kao',g:3,p:4},{id:uid(),n:'Dax Renn',g:4,p:5}],active:[],dropship:true};
 b1.active=[{mech:b1.inventory[0].id,pilot:b1.roster[0].id,on:true},{mech:b1.inventory[1].id,pilot:b1.roster[1].id,on:true}];S.brigades=[b1];save();renderAll()};
-document.getElementById('wipeBtn').onclick=()=>{if(confirm('Wipe all?')){S={era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[]};save();renderAll()}};
+document.getElementById('wipeBtn').onclick=()=>{if(confirm('Wipe all?')){S={era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[],outcomes:[],selScenario:null,activePredrop:null};save();renderAll()}};
 document.getElementById('jsonBtn').onclick=()=>{const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bt-backup.json';a.click()};
 document.getElementById('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{S=JSON.parse(r.result);save();renderAll()};r.readAsText(f)};
-function renderAll(){save();renderDates();renderBrigs();renderScens();refreshImportDates()}
+function renderAll(){save();renderDates();renderBrigs();renderScens();renderOutcomes();refreshImportDates()}
 renderAll();

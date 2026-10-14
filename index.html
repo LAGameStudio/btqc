@@ -25,6 +25,7 @@
   <button class="tab" data-tab="brigades">♞ Brigades</button>
   <button class="tab" data-tab="scenarios">✦ Scenarios</button>
   <button class="tab" data-tab="predrop">▼ Pre-Drop</button>
+  <button class="tab" data-tab="outcomes">▣ Outcomes</button>
   <button class="tab" data-tab="settings">⚙ Settings</button>
 </nav>
 <main>
@@ -64,6 +65,10 @@
     <div id="predropOut"></div>
   </div>
 </section>
+<section id="tab-outcomes" class="panel">
+  <div class="card"><h2>Record Outcome</h2><div id="outcomeForm"><p class="hint">Pick a game date, scenario and brigade, then pull the dropship load.</p></div></div>
+  <div class="card"><h2>Committed Outcomes</h2><div id="outcomeList" class="stack"><p class="hint">No committed outcomes yet.</p></div></div>
+</section>
 <section id="tab-import" class="panel">
   <div class="card"><h2>Import Sheets CSV</h2>
     <p class="hint">Import back a CSV previously exported with <b>⇩ Export</b> (e.g. edited in Google Sheets). Forces, objectives, payouts and map are restored into the selected game date.</p>
@@ -76,12 +81,12 @@
   <div class="card"><h2>Settings & Data</h2>
     <div class="row wrap"><button class="btn" id="seedBtn">Load Demo Campaign</button><button class="btn danger" id="wipeBtn">Wipe All Data</button><button class="btn" id="jsonBtn">Export JSON</button><label class="btn">Import JSON <input type="file" id="importFile" hidden accept=".json"></label></div>
     <h3>Mech Quick-Add Reference (BV/PV/C-Bills)</h3><div id="mechRef" class="mechref"></div>
-    <h3>Rules Notes</h3><ul class="notes"><li>Sources: Campaign Operations, Mercenaries, Hinterlands, Draconis Combine campaign books. OpFor & objective modifiers are transparent in Pre-Drop.</li><li>BV skill multiplier uses Classic table (4/5 = 1.00). PV skill uses AS Companion p.92 (+1 skill ≈ +~10%).</li><li>Monthly upkeep = 4% of active 'Mech C-Bill value + 15,000 per active MechWarrior + 25,000 Dropship berth.</li><li>Sheets export: CSV with Forces / Objectives / Payouts / Map — import via File → Import in Google Sheets.</li><li>Mech icons show battlefield role: 👊 Brawler, 🪓 Striker, 🔭 Scout, 🚀 Missile Boat, 🎯 Sniper, ⚔️ Skirmisher, 🛡️ Juggernaut, 🥷 Ambusher, 🔥 Fire Support. Units with no listed role fall back to a weight-class icon.</li></ul>
+    <h3>Rules Notes</h3><ul class="notes"><li>Sources: Campaign Operations, Mercenaries, Hinterlands, Draconis Combine campaign books. OpFor & objective modifiers are transparent in Pre-Drop.</li><li>BV skill multiplier uses Classic table (4/5 = 1.00). PV skill uses AS Companion p.92 (+1 skill ≈ +~10%).</li><li>Monthly upkeep = 4% of active 'Mech C-Bill value + 15,000 per active MechWarrior + 25,000 Dropship berth.</li><li>Sheets export: CSV with Forces / Objectives / Payouts / Map — import via File → Import in Google Sheets.</li><li>Game dates carry their own TW/AS mode switch — Pre-Drop and Export follow the active scenario's date.</li><li>Outcomes tab: commit a game's result (payouts, repair, salvage, pilot fates) to a brigade's accounting; editing or deleting reverses the old application.</li><li>Mech icons show battlefield role: 👊 Brawler, 🪓 Striker, 🔭 Scout, 🚀 Missile Boat, 🎯 Sniper, ⚔️ Skirmisher, 🛡️ Juggernaut, 🥷 Ambusher, 🔥 Fire Support. Units with no listed role fall back to a weight-class icon.</li></ul>
   </div>
 </section>
 </main>
 <footer><span>BT Quick Contract Scenario Tool — unofficial fan tool. BattleTech © Catalyst Game Labs / Topps.</span></footer>
 <div id="toast"></div>
-<script src="app.js?v=5"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>
