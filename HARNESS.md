@@ -30,7 +30,7 @@ Expect zero console errors (only Google-Fonts network entries).
 6. **Pre-Drop** → TW mode: `1,897 → x1.15 → +175 → 2,357 BV`.
 7. Toggle **ALPHA STRIKE** → header flips to `Alpha Strike (PV)`, row becomes `52 → PV skill 15 → +2 → 51 PV`.
 8. **⇩ Export** → downloads `bt-scenario.csv` (FORCES / OBJECTIVES / MAP sections).
-9. **Import tab** → paste/re-upload that CSV → Parse → Apply Import → forces, objectives, payouts and map restored into the selected game date.
+9. **⇧ Import** (header button, next to Export) → paste/re-upload that CSV → Parse → Apply Import → forces, objectives, payouts and map restored into the selected game date.
 
 ## 4. Known notes
 
