@@ -45,12 +45,15 @@ document.getElementById('modeTW').onclick=()=>setMode('TW');document.getElementB
 // SCHEDULE
 document.getElementById('addDateBtn').onclick=()=>{const d=document.getElementById('newDate').value;if(!d)return toast('Pick a date');S.dates.push({id:uid(),date:d,note:document.getElementById('newDateNote').value,status:'open',locked:false});save();renderAll();toast('Game date added')};
 function renderDates(){const el=document.getElementById('dateList');el.innerHTML='';const today=new Date().toISOString().slice(0,10);
-S.dates.sort((a,b)=>a.date.localeCompare(b.date)).forEach(g=>{if(g.date<today&&!g.locked&&g.status==='open'){g.locked=true}
+S.dates.sort((a,b)=>a.date.localeCompare(b.date));
+const upcomingId=(S.dates.filter(g=>g.status==='open'&&!g.locked&&g.date>=today).sort((a,b)=>a.date.localeCompare(b.date))[0]||{}).id;
+S.dates.forEach(g=>{if(g.date<today&&!g.locked&&g.status==='open'){g.locked=true}
 const d=document.createElement('div');d.className='date-row'+(g.locked?' locked':'');
-d.innerHTML=`<b>${g.date}</b> <span class="pill ${g.locked?'lock':g.status==='cancelled'?'cancel':'open'}">${g.locked?'LOCKED':g.status.toUpperCase()}</span> <span>${g.note||''}</span><div class="row"></div>`;
+const up=g.id===upcomingId?' <span class="pill open">UPCOMING</span>':'';
+d.innerHTML=`<b>${g.date}</b> <span class="pill ${g.locked?'lock':g.status==='cancelled'?'cancel':'open'}">${g.locked?'LOCKED':g.status.toUpperCase()}</span>${up} <span>${g.note||''}</span><div class="row"></div>`;
 const row=d.querySelector('.row');
 const mk=(t,fn,dis)=>{const b=document.createElement('button');b.className='btn small';b.textContent=t;b.onclick=fn;b.disabled=!!dis;row.appendChild(b)};
-if(!g.locked){mk('Cancel',()=>{g.status='cancelled';save();renderAll()});mk('Reschedule +7d',()=>{const dt=new Date(g.date);dt.setDate(dt.getDate()+7);g.date=dt.toISOString().slice(0,10);g.status='open';save();renderAll()});}
+if(!g.locked){mk('Cancel',()=>{g.status='cancelled';save();renderAll()});mk('Reschedule',()=>{if(row.querySelector('[data-resched]'))return;const inp=document.createElement('input');inp.type='date';inp.value=g.date;inp.setAttribute('data-resched','1');const set=document.createElement('button');set.className='btn small';set.textContent='Set date';set.onclick=()=>{if(!inp.value)return toast('Pick a date');g.date=inp.value;g.status='open';save();renderAll();toast('Game date rescheduled')};row.appendChild(inp);row.appendChild(set);inp.focus()});}
 mk(g.locked?'Unlock':'Lock',()=>{g.locked=!g.locked;save();renderAll()});
 mk('Delete',()=>{if(confirm('Delete date?')){S.dates=S.dates.filter(x=>x.id!==g.id);save();renderAll()}});
 el.appendChild(d)});save();
