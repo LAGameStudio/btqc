@@ -49,7 +49,7 @@ S.dates.sort((a,b)=>a.date.localeCompare(b.date));
 const upcomingId=(S.dates.filter(g=>g.status==='open'&&!g.locked&&g.date>=today).sort((a,b)=>a.date.localeCompare(b.date))[0]||{}).id;
 S.dates.forEach(g=>{if(g.date<today&&!g.locked&&g.status==='open'){g.locked=true}
 const d=document.createElement('div');d.className='date-row'+(g.locked?' locked':'');
-const up=g.id===upcomingId?' <span class="pill open">UPCOMING</span>':'';
+const up=g.id===upcomingId?' <span class="pill upcoming">UPCOMING</span>':'';
 d.innerHTML=`<b>${g.date}</b> <span class="pill ${g.locked?'lock':g.status==='cancelled'?'cancel':'open'}">${g.locked?'LOCKED':g.status.toUpperCase()}</span>${up} <span>${g.note||''}</span><div class="row"></div>`;
 const row=d.querySelector('.row');
 const mk=(t,fn,dis)=>{const b=document.createElement('button');b.className='btn small';b.textContent=t;b.onclick=fn;b.disabled=!!dis;row.appendChild(b)};
