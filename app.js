@@ -139,11 +139,19 @@ function renderScens(){const el=document.getElementById('scenarioList');el.inner
 let list=S.scenarios.filter(s=>s.status!=='discarded');
 if(!document.getElementById('includeOld').checked){const gid=document.getElementById('genDate').value;list=list.filter(s=>s.gameDateId===gid)}
 list.forEach(s=>{const d=document.createElement('div');d.className='scen'+(s.status==='active'?' active':'');
-d.innerHTML=`<span class="pill">${s.status.toUpperCase()}</span> <span class="hint">${s.gameDateId?'':''}</span><h3>${s.title}</h3><p>${s.backstory}</p><p class="hint">OpFor: ${s.opfor} | Map ${s.map.size} ${s.map.loc}</p><div class="row"><button class="btn small" data-view="${s.id}">Inspect</button><button class="btn small" data-act="${s.id}">Activate</button><button class="btn small" data-dis="${s.id}">Discard</button></div>`;
+d.innerHTML=`<span class="pill">${s.status.toUpperCase()}</span> <span class="hint">${s.gameDateId?'':''}</span><h3>${s.title}</h3><p>${s.backstory}</p><p class="hint">OpFor: ${s.opfor} | Map ${s.map.size} ${s.map.loc}</p><div class="row"><button class="btn small" data-view="${s.id}">Inspect</button><button class="btn small" data-act="${s.id}">Activate</button><button class="btn small" data-dis="${s.id}">Remove</button></div>`;
 el.appendChild(d)});
+const removed=S.scenarios.filter(s=>s.status==='discarded');
+if(removed.length){const bin=document.createElement('div');bin.className='card';
+bin.innerHTML=`<h3>Removed scenarios (${removed.length})</h3><p class="hint">Removed from the available list. Restore one to make it selectable again, or delete it permanently.</p>`;
+removed.forEach(s=>{const r=document.createElement('div');r.className='date-row';
+r.innerHTML=`<b>${s.title}</b> <span class="pill cancel">REMOVED</span> <span class="hint">${s.type||''}</span><div class="row"><button class="btn small" data-res="${s.id}">Restore</button><button class="btn small" data-sdel="${s.id}">Delete</button></div>`;bin.appendChild(r)});
+el.appendChild(bin)}
 el.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{S.selScenario=b.dataset.view;save();renderInspector()});
-el.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>{S.scenarios.forEach(x=>{if(x.gameDateId===S.scenarios.find(y=>y.id===b.dataset.act).gameDateId&&x.status==='active')x.status='available'});S.scenarios.find(x=>x.id===b.dataset.act).status='active';S.activePredrop=b.dataset.act;save();renderAll()});
-el.querySelectorAll('[data-dis]').forEach(b=>b.onclick=()=>{const s=S.scenarios.find(x=>x.id===b.dataset.dis);if(!s)return;if(!confirm(`Discard scenario '${s.title}'? It will be hidden and cannot be selected again.`))return;s.status='discarded';save();renderAll()});
+el.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>{const t=S.scenarios.find(y=>y.id===b.dataset.act);if(!t)return;S.scenarios.forEach(x=>{if(x.gameDateId===t.gameDateId&&x.status==='active')x.status='available'});t.status='active';S.activePredrop=t.id;save();renderAll()});
+el.querySelectorAll('[data-dis]').forEach(b=>b.onclick=()=>{const s=S.scenarios.find(x=>x.id===b.dataset.dis);if(!s)return;if(!confirm(`Remove scenario '${s.title}' from the available list? You can restore or permanently delete it under Removed scenarios.`))return;s.status='discarded';if(S.selScenario===s.id)S.selScenario=null;if(S.activePredrop===s.id)S.activePredrop=null;save();renderAll()});
+el.querySelectorAll('[data-res]').forEach(b=>b.onclick=()=>{const s=S.scenarios.find(x=>x.id===b.dataset.res);if(!s)return;s.status='available';save();renderAll();toast(`Restored '${s.title}' to the available list`)});
+el.querySelectorAll('[data-sdel]').forEach(b=>b.onclick=()=>{const s=S.scenarios.find(x=>x.id===b.dataset.sdel);if(!s)return;if(!confirm(`Permanently delete scenario '${s.title}'? This cannot be undone.`))return;S.scenarios=S.scenarios.filter(x=>x.id!==s.id);if(S.selScenario===s.id)S.selScenario=null;if(S.activePredrop===s.id)S.activePredrop=null;save();renderAll()});
 renderInspector();renderPredropSel()}
 function renderInspector(){const el=document.getElementById('inspector');const s=S.scenarios.find(x=>x.id===S.selScenario);
 if(!s){el.innerHTML='<p class="hint">Select a scenario.</p>';return}
