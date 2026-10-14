@@ -186,10 +186,11 @@ if(!s){el.innerHTML='<p class="hint">Select a scenario.</p>';return}
 el.innerHTML=`<h3>${s.title} <button class="btn small" data-say="${s.id}">${sayLabel(s.id)}</button></h3><p>${s.backstory}</p><p><b>OpFor modifier:</b> ${s.opfor}</p>
 <p><b>Map:</b> ${s.map.size} — ${s.map.loc} — ${s.map.ter} — ${s.map.cond}</p>
 <h4>Objectives (accept / enable)</h4><table><tr><th>✓</th><th>Objective</th><th>Payout C</th><th>Accepted by</th></tr>${s.objectives.map(o=>`<tr><td><input type="checkbox" ${o.enabled?'checked':''} data-oen="${s.id}:${o.id}"></td><td>${o.text}</td><td><input type="number" value="${o.payout}" style="width:110px" data-opay="${s.id}:${o.id}"></td><td><select data-oby="${s.id}:${o.id}"><option value="">—</option>${S.brigades.map(b=>`<option ${o.by===b.id?'selected':''} value="${b.id}">${b.name}</option>`).join('')}</select></td></tr>`).join('')}</table>
+<p class="hint">Payouts total: <b>${s.objectives.filter(o=>o.enabled).reduce((t,o)=>t+(+o.payout||0),0).toLocaleString()} C</b> (${s.objectives.filter(o=>o.enabled).length}/${s.objectives.length} objectives)</p>
 <h4>Salvage Rights %</h4>${S.brigades.map(b=>`<div class="row"><span>${b.name}</span><input type="range" min="0" max="100" value="${s.salvage[b.id]||30}" data-sal="${s.id}:${b.id}"><span data-salv="${s.id}:${b.id}">${s.salvage[b.id]||30}%</span></div>`).join('')||'<p class="hint">No brigades yet.</p>'}`;
 el.querySelectorAll('[data-say]').forEach(b=>b.onclick=()=>sayToggle(b.dataset.say));
-el.querySelectorAll('[data-oen]').forEach(c=>c.onchange=()=>{const[si,oi]=c.dataset.oen.split(':');S.scenarios.find(x=>x.id===si).objectives.find(o=>o.id===oi).enabled=c.checked;save()});
-el.querySelectorAll('[data-opay]').forEach(c=>c.onchange=()=>{const[si,oi]=c.dataset.opay.split(':');S.scenarios.find(x=>x.id===si).objectives.find(o=>o.id===oi).payout=+c.value;save()});
+el.querySelectorAll('[data-oen]').forEach(c=>c.onchange=()=>{const[si,oi]=c.dataset.oen.split(':');S.scenarios.find(x=>x.id===si).objectives.find(o=>o.id===oi).enabled=c.checked;save();renderInspector();renderScens()});
+el.querySelectorAll('[data-opay]').forEach(c=>c.onchange=()=>{const[si,oi]=c.dataset.opay.split(':');S.scenarios.find(x=>x.id===si).objectives.find(o=>o.id===oi).payout=+c.value;save();renderInspector();renderScens()});
 el.querySelectorAll('[data-oby]').forEach(c=>c.onchange=()=>{const[si,oi]=c.dataset.oby.split(':');S.scenarios.find(x=>x.id===si).objectives.find(o=>o.id===oi).by=c.value;save()});
 el.querySelectorAll('[data-sal]').forEach(c=>c.oninput=()=>{const[si,bi]=c.dataset.sal.split(':');S.scenarios.find(x=>x.id===si).salvage[bi]=+c.value;el.querySelector(`[data-salv="${si}:${bi}"]`).textContent=c.value+'%';save()});
 }
