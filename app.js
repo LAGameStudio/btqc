@@ -109,13 +109,13 @@ d.innerHTML=`<div class="row"><b style="font-family:Orbitron">${b.name}</b><span
 el.appendChild(d)});
 // wire
 el.querySelectorAll('[data-cb]').forEach(i=>i.onchange=()=>{S.brigades.find(b=>b.id===i.dataset.cb).cbills=+i.value;save();renderBrigs()});
-el.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>{S.brigades=S.brigades.filter(b=>b.id!==x.dataset.del);save();renderAll()});
+el.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>{const b=S.brigades.find(v=>v.id===x.dataset.del);if(!b)return;if(!confirm(`Delete brigade '${b.name}' and all its mechs, pilots and dropship load?`))return;S.brigades=S.brigades.filter(v=>v.id!==b.id);save();renderAll()});
 el.querySelectorAll('[data-toggle]').forEach(x=>x.onclick=()=>{const b=S.brigades.find(v=>v.id===x.dataset.toggle);b.active.forEach(a=>a.on=!a.on);save();renderAll()});
 el.querySelectorAll('[data-msearch]').forEach(inp=>inp.oninput=()=>{const b=S.brigades.find(v=>v.id===inp.dataset.msearch);const q=inp.value.toLowerCase().trim();const sel=el.querySelector(`[data-msel="${b.id}"]`);const hits=(q?MECHS.filter(m=>m.n.toLowerCase().includes(q)):MECHS).slice(0,100);sel.innerHTML=hits.map(m=>`<option value="${m.n.replace(/"/g,'&quot;')}">${m.ico} ${m.n} — ${val(m)}${m.yr?' · '+m.yr:''}${m.rl&&m.rl!=='None'?' · '+m.rl:''}</option>`).join('')||'<option value="">No matches</option>'});
 el.querySelectorAll('[data-addm]').forEach(x=>x.onclick=()=>{const b=S.brigades.find(v=>v.id===x.dataset.addm);const sel=el.querySelector(`[data-msel="${b.id}"]`);const m=MECHS.find(v=>v.n===sel.value)||MECHS[0];if(!m)return toast('No mech selected');const {canon,...rest}=m;b.inventory.push({id:uid(),...rest});save();renderAll();toast(`Added ${m.n}`)});
-el.querySelectorAll('[data-rmm]').forEach(x=>x.onclick=()=>{const[bi,mi]=x.dataset.rmm.split(':');const b=S.brigades.find(v=>v.id===bi);b.inventory=b.inventory.filter(m=>m.id!==mi);save();renderAll()});
+el.querySelectorAll('[data-rmm]').forEach(x=>x.onclick=()=>{const[bi,mi]=x.dataset.rmm.split(':');const b=S.brigades.find(v=>v.id===bi);const m=b&&b.inventory.find(v=>v.id===mi);if(!b||!m)return;const used=b.active.some(a=>a.mech===mi);if(!confirm(`Remove '${m.n}' from '${b.name}' inventory?${used?' It is assigned to a dropship load slot.':''}`))return;b.inventory=b.inventory.filter(v=>v.id!==mi);save();renderAll()});
 el.querySelectorAll('[data-addp]').forEach(x=>x.onclick=()=>{const b=S.brigades.find(v=>v.id===x.dataset.addp);b.roster.push({id:uid(),n:el.querySelector(`[data-pn="${b.id}"]`).value||'MechWarrior',g:+el.querySelector(`[data-pg="${b.id}"]`).value||4,p:+el.querySelector(`[data-pp="${b.id}"]`).value||5});save();renderAll()});
-el.querySelectorAll('[data-rmp]').forEach(x=>x.onclick=()=>{const[bi,pi]=x.dataset.rmp.split(':');const b=S.brigades.find(v=>v.id===bi);b.roster=b.roster.filter(p=>p.id!==pi);save();renderAll()});
+el.querySelectorAll('[data-rmp]').forEach(x=>x.onclick=()=>{const[bi,pi]=x.dataset.rmp.split(':');const b=S.brigades.find(v=>v.id===bi);const p=b&&b.roster.find(v=>v.id===pi);if(!b||!p)return;const used=b.active.some(a=>a.pilot===pi);if(!confirm(`Remove pilot '${p.n}' (${p.g}/${p.p}) from '${b.name}' roster?${used?' They are assigned to a dropship load slot.':''}`))return;b.roster=b.roster.filter(v=>v.id!==pi);save();renderAll()});
 el.querySelectorAll('[data-adda]').forEach(x=>x.onclick=()=>{S.brigades.find(b=>b.id===x.dataset.adda).active.push({mech:'',pilot:'',on:true});save();renderAll()});
 el.querySelectorAll('[data-aon]').forEach(c=>c.onchange=()=>{const[bi,i]=c.dataset.aon.split(':');S.brigades.find(b=>b.id===bi).active[+i].on=c.checked;save();renderAll()});
 el.querySelectorAll('[data-amech]').forEach(s=>s.onchange=()=>{const[bi,i]=s.dataset.amech.split(':');S.brigades.find(b=>b.id===bi).active[+i].mech=s.value;save();renderAll()});
@@ -138,7 +138,7 @@ d.innerHTML=`<span class="pill">${s.status.toUpperCase()}</span> <span class="hi
 el.appendChild(d)});
 el.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{S.selScenario=b.dataset.view;save();renderInspector()});
 el.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>{S.scenarios.forEach(x=>{if(x.gameDateId===S.scenarios.find(y=>y.id===b.dataset.act).gameDateId&&x.status==='active')x.status='available'});S.scenarios.find(x=>x.id===b.dataset.act).status='active';S.activePredrop=b.dataset.act;save();renderAll()});
-el.querySelectorAll('[data-dis]').forEach(b=>b.onclick=()=>{S.scenarios.find(x=>x.id===b.dataset.dis).status='discarded';save();renderAll()});
+el.querySelectorAll('[data-dis]').forEach(b=>b.onclick=()=>{const s=S.scenarios.find(x=>x.id===b.dataset.dis);if(!s)return;if(!confirm(`Discard scenario '${s.title}'? It will be hidden and cannot be selected again.`))return;s.status='discarded';save();renderAll()});
 renderInspector();renderPredropSel()}
 function renderInspector(){const el=document.getElementById('inspector');const s=S.scenarios.find(x=>x.id===S.selScenario);
 if(!s){el.innerHTML='<p class="hint">Select a scenario.</p>';return}
