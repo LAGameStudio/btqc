@@ -1,12 +1,19 @@
 const LS='bqct_state_v1';
 const ERAS=['3025-3039 Succession Wars','3049-3052 Clan Invasion','3050-3067 Late Invasion / Civil War (default)','3068-3085 Jihad','3086-3152 Early Republic / Dark Age','3152+ ilClan'];
-const MECHS=[
-{n:'Atlas AS7-D',bv:1897,pv:48,cb:9634000,ico:'♜'}, {n:'Marauder MAD-3R',bv:1363,pv:36,cb:6325000,ico:'♞'},
-{n:'Timber Wolf (Mad Cat) Prime',bv:2737,pv:52,cb:24360000,ico:'🐺'}, {n:'Summoner (Thor) Prime',bv:2295,pv:45,cb:22900000,ico:'🦅'},
-{n:'Locust LCT-1V',bv:432,pv:16,cb:1519000,ico:'⚡'}, {n:'Jenner JR7-D',bv:875,pv:24,cb:4465000,ico:'🔥'},
-{n:'Hunchback HBK-4G',bv:1041,pv:28,cb:3587000,ico:'🔨'}, {n:'Warhammer WHM-6R',bv:1299,pv:35,cb:6023000,ico:'🔱'},
-{n:'Raven RVN-3L',bv:906,pv:22,cb:4840000,ico:'🐦'}, {n:'Catapult CPLT-C1',bv:1399,pv:33,cb:6382000,ico:'🎯'},
-{n:'Awesome AWS-8Q',bv:1605,pv:40,cb:6644000,ico:'⚡'}, {n:'Elemental Point (Clan BA)',bv:447,pv:14,cb:2500000,ico:'🛡'}];
+const FALLBACK_MECHS=[
+{n:'Atlas AS7-D',bv:1897,pv:48,cb:9634000,ico:'♜',wc:'Assault'}, {n:'Marauder MAD-3R',bv:1363,pv:36,cb:6325000,ico:'♞',wc:'Heavy'},
+{n:'Timber Wolf (Mad Cat) Prime',bv:2737,pv:52,cb:24360000,ico:'🐺',wc:'Heavy'}, {n:'Summoner (Thor) Prime',bv:2295,pv:45,cb:22900000,ico:'🦅',wc:'Heavy'},
+{n:'Locust LCT-1V',bv:432,pv:16,cb:1519000,ico:'⚡',wc:'Light'}, {n:'Jenner JR7-D',bv:875,pv:24,cb:4465000,ico:'🔥',wc:'Light'},
+{n:'Hunchback HBK-4G',bv:1041,pv:28,cb:3587000,ico:'🔨',wc:'Medium'}, {n:'Warhammer WHM-6R',bv:1299,pv:35,cb:6023000,ico:'🔱',wc:'Heavy'},
+{n:'Raven RVN-3L',bv:906,pv:22,cb:4840000,ico:'🐦',wc:'Light'}, {n:'Catapult CPLT-C1',bv:1399,pv:33,cb:6382000,ico:'🎯',wc:'Heavy'},
+{n:'Awesome AWS-8Q',bv:1605,pv:40,cb:6644000,ico:'⚡',wc:'Assault'}];
+let MECHS=[...FALLBACK_MECHS];
+let MECH_SOURCE='built-in fallback (12 units)';
+function icoFor(wc){return wc==='Light'?'⚡':wc==='Medium'?'🔨':wc==='Assault'?'♜':wc&&wc.includes('Colossal')?'🗿':'♞'}
+// Full MekBay catalog (type=Mek, 4,295 units, BV+PV+cost) generated from https://github.com/MegaMek/mekbay via db.mekbay.com/units.json
+fetch('mechs.json').then(r=>{if(!r.ok)throw 0;return r.json()}).then(j=>{
+  if(Array.isArray(j)&&j.length>100){MECHS=j.map(u=>({...u,ico:icoFor(u.wc)}));MECH_SOURCE=`MekBay catalog (${MECHS.length.toLocaleString()} Mek units, db.mekbay.com 2026-09-25)`;renderBrigs();renderMechRef();toast(`Loaded ${MECHS.length.toLocaleString()} MekBay mechs`)}
+}).catch(()=>{renderMechRef()});
 const MISSIONS=[
 {t:'Ambush / Raid',d:'Hit supply convoy on Hinterlands trade road. Fast strikers favored.',obj:['Destroy 50% convoy vehicles','Capture supply cache','Exfiltrate off south edge'],pay:850000,map:{size:'32x34',loc:'Hinterlands crossroads',ter:'Light woods / road',cond:'Dawn, light fog (+1 ranged >12 hex)'}},
 {t:'Breakthrough',d:'Punch through Draconis Combine picket to relieve garrison.',obj:['Exit 50% force off far edge','Destroy pillbox','Protect APC with tech team'],pay:1200000,map:{size:'36x48',loc:'Draconis border fort',ter:'Hills / bunker',cond:'Clear, extreme heat (+1 heat/turn)'}},
@@ -60,7 +67,7 @@ function renderBrigs(){const el=document.getElementById('brigList');el.innerHTML
 S.brigades.forEach(b=>{const d=document.createElement('div');d.className='brig';
 let tot=S.mode==='TW'?b.active.filter(a=>a.on).reduce((s,a)=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);return s+(m?adjBV(m.bv,p?p.g:4,p?p.p:5):0)},0):b.active.filter(a=>a.on).reduce((s,a)=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);return s+(m?m.pv+(p?pvSkill(p.g,p.p)-18:0):0)},0);
 d.innerHTML=`<div class="row"><b style="font-family:Orbitron">${b.name}</b><span class="pill">${b.employer}</span><span>C-Bills: <input type="number" value="${b.cbills}" data-cb="${b.id}" style="width:130px"></span><span>Upkeep/mo: <b>${upkeep(b).toLocaleString()} C</b></span><span>Deployed: <b>${tot.toLocaleString()} ${S.mode==='TW'?'BV':'PV'}</b></span><button class="btn small" data-del="${b.id}">Delete</button> <button class="btn small" data-toggle="${b.id}">Active: ON/OFF all</button></div>
-<div class="grid2"><div><h4>Inventory (Mechs)</h4><div class="row"><select data-msel="${b.id}">${MECHS.map((m,i)=>`<option value="${i}">${m.ico} ${m.n} — ${val(m)}</option>`).join('')}</select><button class="btn small" data-addm="${b.id}">+ Add</button></div><table><tr><th></th><th>Mech</th><th>${S.mode==='TW'?'BV @4/5':'PV'}</th><th>C-Bills</th><th></th></tr>${b.inventory.map(m=>`<tr><td class="mech-ico">${m.ico}</td><td>${m.n}</td><td>${val(m)}</td><td>${m.cb.toLocaleString()}</td><td><button class="btn small" data-rmm="${b.id}:${m.id}">x</button></td></tr>`).join('')}</table></div>
+<div class="grid2"><div><h4>Inventory (Mechs) <span class="hint">${MECHS.length.toLocaleString()} available</span></h4><div class="row"><input placeholder="🔍 Search ${MECHS.length.toLocaleString()} mechs…" data-msearch="${b.id}" style="flex:1;min-width:140px"><button class="btn small" data-addm="${b.id}">+ Add selected</button></div><div class="row"><select data-msel="${b.id}" style="width:100%">${MECHS.slice(0,50).map(m=>`<option value="${m.n}">${m.ico} ${m.n} — ${val(m)}</option>`).join('')}</select></div><table><tr><th></th><th>Mech</th><th>${S.mode==='TW'?'BV @4/5':'PV'}</th><th>C-Bills</th><th></th></tr>${b.inventory.map(m=>`<tr><td class="mech-ico">${m.ico}</td><td>${m.n}</td><td>${val(m)}</td><td>${m.cb.toLocaleString()}</td><td><button class="btn small" data-rmm="${b.id}:${m.id}">x</button></td></tr>`).join('')}</table></div>
 <div><h4>MechWarriors</h4><div class="row"><input placeholder="Name" data-pn="${b.id}"><input placeholder="G" type="number" value="4" min="0" max="8" style="width:50px" data-pg="${b.id}"><input placeholder="P" type="number" value="5" min="0" max="8" style="width:50px" data-pp="${b.id}"><button class="btn small" data-addp="${b.id}">+ Pilot</button></div><table><tr><th>Pilot</th><th>G/P</th><th>Mod</th><th></th></tr>${b.roster.map(p=>`<tr><td>${p.n}</td><td>${p.g}/${p.p}</td><td>x${bvMult(p.g,p.p)}</td><td><button class="btn small" data-rmp="${b.id}:${p.id}">x</button></td></tr>`).join('')}</table>
 <h4>Dropship Load (next game)</h4><table><tr><th>On</th><th>Mech</th><th>Pilot</th><th>Adj ${S.mode==='TW'?'BV':'PV'}</th></tr>${b.active.map((a,i)=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);const adj=m&&p?(S.mode==='TW'?adjBV(m.bv,p.g,p.p):m.pv+(pvSkill(p.g,p.p)-18)):(m?(S.mode==='TW'?m.bv:m.pv):0);return `<tr><td><input type="checkbox" ${a.on?'checked':''} data-aon="${b.id}:${i}"></td><td><select data-amech="${b.id}:${i}"><option value="">—</option>${b.inventory.map(m2=>`<option value="${m2.id}" ${m2.id===a.mech?'selected':''}>${m2.n}</option>`).join('')}</select></td><td><select data-apilot="${b.id}:${i}"><option value="">—</option>${b.roster.map(p2=>`<option value="${p2.id}" ${p2.id===a.pilot?'selected':''}>${p2.n} ${p2.g}/${p2.p}</option>`).join('')}</select></td><td>${adj.toLocaleString()}</td></tr>`}).join('')}</table><button class="btn small" data-adda="${b.id}">+ Load slot</button></div></div>`;
 el.appendChild(d)});
@@ -68,7 +75,8 @@ el.appendChild(d)});
 el.querySelectorAll('[data-cb]').forEach(i=>i.onchange=()=>{S.brigades.find(b=>b.id===i.dataset.cb).cbills=+i.value;save();renderBrigs()});
 el.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>{S.brigades=S.brigades.filter(b=>b.id!==x.dataset.del);save();renderAll()});
 el.querySelectorAll('[data-toggle]').forEach(x=>x.onclick=()=>{const b=S.brigades.find(v=>v.id===x.dataset.toggle);b.active.forEach(a=>a.on=!a.on);save();renderAll()});
-el.querySelectorAll('[data-addm]').forEach(x=>x.onclick=()=>{const b=S.brigades.find(v=>v.id===x.dataset.addm);const sel=el.querySelector(`[data-msel="${b.id}"]`);const m=MECHS[+sel.value];b.inventory.push({id:uid(),...m});save();renderAll()});
+el.querySelectorAll('[data-msearch]').forEach(inp=>inp.oninput=()=>{const b=S.brigades.find(v=>v.id===inp.dataset.msearch);const q=inp.value.toLowerCase().trim();const sel=el.querySelector(`[data-msel="${b.id}"]`);const hits=(q?MECHS.filter(m=>m.n.toLowerCase().includes(q)):MECHS).slice(0,100);sel.innerHTML=hits.map(m=>`<option value="${m.n.replace(/"/g,'&quot;')}">${m.ico} ${m.n} — ${val(m)}</option>`).join('')||'<option value="">No matches</option>'});
+el.querySelectorAll('[data-addm]').forEach(x=>x.onclick=()=>{const b=S.brigades.find(v=>v.id===x.dataset.addm);const sel=el.querySelector(`[data-msel="${b.id}"]`);const m=MECHS.find(v=>v.n===sel.value)||MECHS[0];if(!m)return toast('No mech selected');const {canon,...rest}=m;b.inventory.push({id:uid(),...rest});save();renderAll();toast(`Added ${m.n}`)});
 el.querySelectorAll('[data-rmm]').forEach(x=>x.onclick=()=>{const[bi,mi]=x.dataset.rmm.split(':');const b=S.brigades.find(v=>v.id===bi);b.inventory=b.inventory.filter(m=>m.id!==mi);save();renderAll()});
 el.querySelectorAll('[data-addp]').forEach(x=>x.onclick=()=>{const b=S.brigades.find(v=>v.id===x.dataset.addp);b.roster.push({id:uid(),n:el.querySelector(`[data-pn="${b.id}"]`).value||'MechWarrior',g:+el.querySelector(`[data-pg="${b.id}"]`).value||4,p:+el.querySelector(`[data-pp="${b.id}"]`).value||5});save();renderAll()});
 el.querySelectorAll('[data-rmp]').forEach(x=>x.onclick=()=>{const[bi,pi]=x.dataset.rmp.split(':');const b=S.brigades.find(v=>v.id===bi);b.roster=b.roster.filter(p=>p.id!==pi);save();renderAll()});
@@ -132,9 +140,11 @@ csv+='\nOBJECTIVES,Objective,Enabled,AcceptedBy,Payout\n';if(s)s.objectives.forE
 csv+=`\nMAP,Size,Location,Terrain,Conditions\nMAP,"${s?s.map.size:''}","${s?s.map.loc:''}","${s?s.map.ter:''}","${s?s.map.cond:''}"\n`;
 const blob=new Blob([csv],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bt-scenario.csv';a.click();toast('CSV downloaded — import into Google Sheets')};
 // SETTINGS
-document.getElementById('mechRef').innerHTML=MECHS.map(m=>`<div class="pill">${m.ico} ${m.n} ${m.bv}BV/${m.pv}PV</div>`).join('');
+function renderMechRef(){const ref=document.getElementById('mechRef');if(!ref)return;const show=MECHS.slice(0,120);ref.innerHTML=`<p class="hint">Source: ${MECH_SOURCE}. Showing ${show.length} of ${MECHS.length.toLocaleString()} — use Brigade search to find any unit.</p>`+show.map(m=>`<div class="pill" title="${m.wc||''} ${m.tons||''}t ${m.yr||''}">${m.ico} ${m.n} ${m.bv}BV/${m.pv}PV</div>`).join('');const h=ref.previousElementSibling;if(h&&h.tagName==='H3')h.textContent=`Mech Catalog — ${MECHS.length.toLocaleString()} units (BV/PV/C-Bills)`}
+renderMechRef();
 document.getElementById('seedBtn').onclick=()=>{if(!confirm('Load demo campaign?'))return;S.dates=[{id:uid(),date:new Date().toISOString().slice(0,10),note:'Shop Night — demo',status:'open',locked:false}];
-const b1={id:uid(),name:'Iron Jackals',employer:'Federated Suns',cbills:5200000,inventory:[{id:uid(),...MECHS[1]},{id:uid(),...MECHS[6]}],roster:[{id:uid(),n:'Vera "Hammer" Kao',g:3,p:4},{id:uid(),n:'Dax Renn',g:4,p:5}],active:[],dropship:true};
+const pick=n=>{const m=MECHS.find(v=>v.n.toLowerCase().includes(n.toLowerCase()))||MECHS[0];const {canon,...rest}=m;return {id:uid(),...rest}};
+const b1={id:uid(),name:'Iron Jackals',employer:'Federated Suns',cbills:5200000,inventory:[pick('Marauder MAD-3R'),pick('Hunchback HBK-4G')],roster:[{id:uid(),n:'Vera "Hammer" Kao',g:3,p:4},{id:uid(),n:'Dax Renn',g:4,p:5}],active:[],dropship:true};
 b1.active=[{mech:b1.inventory[0].id,pilot:b1.roster[0].id,on:true},{mech:b1.inventory[1].id,pilot:b1.roster[1].id,on:true}];S.brigades=[b1];save();renderAll()};
 document.getElementById('wipeBtn').onclick=()=>{if(confirm('Wipe all?')){S={era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[]};save();renderAll()}};
 document.getElementById('jsonBtn').onclick=()=>{const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bt-backup.json';a.click()};
