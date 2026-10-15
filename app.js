@@ -62,6 +62,13 @@ let calView={y:null,m:null};
 // Speech + outcome draft state (same reason: the initial setMode()->renderAll() touches these)
 let sayId=null;
 let OD=null,editingOutcomeId=null;
+let scenTab='select'; // scenarios Selection/Review tab
+function selScen(){return S.scenarios.find(x=>x.id===S.selScenario&&x.status!=='discarded')||null}
+function renderScenTabs(){const bar=document.getElementById('scenTabs');if(!bar)return;const sel=selScen();if(!sel)scenTab='select';
+bar.innerHTML=`<button class="btn small${scenTab==='select'?' on':''}" data-stab="select">Selection (${S.scenarios.filter(s=>s.status!=='discarded').length})</button><button class="btn small${scenTab==='review'?' on':''}" data-stab="review" ${sel?'':'disabled'} title="${sel?('Review: '+sel.title):'Select a contract on the Selection tab first'}">Review${sel?` — ${sel.title}`:''}</button>`;
+bar.querySelectorAll('[data-stab]').forEach(x=>x.onclick=()=>{if(x.disabled)return;scenTab=x.dataset.stab;renderScens()});
+document.getElementById('scenPaneSelect').style.display=scenTab==='select'?'':'none';
+document.getElementById('scenPaneReview').style.display=scenTab==='review'?'':'none'}
 // Original-Investment locks: read-only until unlocked; relock after 10 s idle
 const brigEdit=new Set(); // brigade ids with name/employer in edit mode
 const brigTab={}; // brigade id -> active card tab (roster|mechs|dropship|outcomes|ledger|memorial|log)
@@ -215,7 +222,7 @@ synth.cancel();const u=new SpeechSynthesisUtterance(sayText(s));u.onend=u.onerro
 function renderScens(){const el=document.getElementById('scenarioList');el.innerHTML='';
 let list=S.scenarios.filter(s=>s.status!=='discarded');
 if(!document.getElementById('includeOld').checked){const gid=document.getElementById('genDate').value;list=list.filter(s=>s.gameDateId===gid)}
-list.forEach(s=>{const d=document.createElement('div');d.className='scen'+(s.status==='active'?' active':'');
+list.forEach(s=>{const d=document.createElement('div');d.className='scen'+(s.status==='active'?' active':'')+(s.id===S.selScenario?' selected':'');
 d.innerHTML=`<span class="pill">${s.status.toUpperCase()}</span> <span class="hint">${s.gameDateId?'':''}</span><h3>${s.title}</h3><p>${s.backstory}</p><p class="hint">OpFor: ${s.opfor} | Map ${s.map.size} ${s.map.loc}</p><p class="hint">Payouts total: <b>${s.objectives.filter(o=>o.enabled).reduce((t,o)=>t+(+o.payout||0),0).toLocaleString()} C</b> (${s.objectives.filter(o=>o.enabled).length}/${s.objectives.length} objectives)</p><div class="row"><button class="btn small" data-view="${s.id}">Inspect</button><button class="btn small" data-act="${s.id}">Activate</button><button class="btn small" data-dis="${s.id}">Remove</button><button class="btn small" data-say="${s.id}">${sayLabel(s.id)}</button></div>`;
 el.appendChild(d)});
 const removed=S.scenarios.filter(s=>s.status==='discarded');
@@ -225,12 +232,12 @@ removed.forEach(s=>{const r=document.createElement('div');r.className='date-row'
 r.innerHTML=`<b>${s.title}</b> <span class="pill cancel">REMOVED</span> <span class="hint">${s.type||''}</span><div class="row"><button class="btn small" data-res="${s.id}">Restore</button><button class="btn small" data-sdel="${s.id}">Delete</button></div>`;bin.appendChild(r)});
 el.appendChild(bin)}
 el.querySelectorAll('[data-say]').forEach(b=>b.onclick=()=>sayToggle(b.dataset.say));
-el.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{S.selScenario=b.dataset.view;save();renderInspector()});
+el.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{S.selScenario=b.dataset.view;scenTab='review';save();renderScens()});
 el.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>{const t=S.scenarios.find(y=>y.id===b.dataset.act);if(!t)return;S.scenarios.forEach(x=>{if(x.gameDateId===t.gameDateId&&x.status==='active')x.status='available'});t.status='active';S.activePredrop=t.id;save();renderAll()});
 el.querySelectorAll('[data-dis]').forEach(b=>b.onclick=async()=>{const s=S.scenarios.find(x=>x.id===b.dataset.dis);if(!s)return;if(!await confirmDlg(`Remove scenario '${s.title}' from the available list? You can restore or permanently delete it under Removed scenarios.`,'Remove'))return;s.status='discarded';if(S.selScenario===s.id)S.selScenario=null;if(S.activePredrop===s.id)S.activePredrop=null;save();renderAll()});
 el.querySelectorAll('[data-res]').forEach(b=>b.onclick=()=>{const s=S.scenarios.find(x=>x.id===b.dataset.res);if(!s)return;s.status='available';save();renderAll();toast(`Restored '${s.title}' to the available list`)});
 el.querySelectorAll('[data-sdel]').forEach(b=>b.onclick=async()=>{const s=S.scenarios.find(x=>x.id===b.dataset.sdel);if(!s)return;if(!await confirmDlg(`Permanently delete scenario '${s.title}'? This cannot be undone.`,'Delete'))return;S.scenarios=S.scenarios.filter(x=>x.id!==s.id);if(S.selScenario===s.id)S.selScenario=null;if(S.activePredrop===s.id)S.activePredrop=null;save();renderAll()});
-renderInspector();renderPredropSel()}
+renderInspector();renderPredropSel();renderScenTabs()}
 function renderInspector(){const el=document.getElementById('inspector');const s=S.scenarios.find(x=>x.id===S.selScenario);
 if(!s){el.innerHTML='<p class="hint">Select a scenario.</p>';return}
 el.innerHTML=`<h3>${s.title} <button class="btn small" data-say="${s.id}">${sayLabel(s.id)}</button></h3><p>${s.backstory}</p><p><b>OpFor modifier:</b> ${s.opfor}</p>
