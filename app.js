@@ -201,17 +201,19 @@ if(!liveBrigs().length&&!ret.length){const p=document.createElement('p');p.class
 }
 // (ledger line locks live in ledEdit/ledTimers; see ledLock/ledArm near memSection)
 // SCENARIOS
+function randMission(avoidType){const pool=MISSIONS.filter(m=>m.t!==avoidType);return (pool.length?pool:MISSIONS)[Math.floor(Math.random()*(pool.length?pool.length:MISSIONS.length))]}
+function buildScenarioFields(gid,opNo,m){const opfor=['Green (+0)','Regular (+5% BV)','Veteran (+12% BV, -1 enemy skill)','Elite (+20% BV, -2 skill)'][Math.floor(Math.random()*4)];
+const NB=S.brigades.length;
+const FALLBACK_V=['{B}: seize the primary objective before the rivals','{B}: deny the rivals their objective at all costs','{B}: exploit the chaos — grab what you can and withdraw'];
+const objs=NB?S.brigades.map((bg,i)=>{const t=((m.v&&m.v.length?m.v:FALLBACK_V)[i%((m.v&&m.v.length?m.v:FALLBACK_V).length)]);return {id:uid(),text:t.replace(/\{B\}/g,bg.name),payout:Math.round(m.pay/NB),enabled:true,by:bg.id}}):m.obj.map(o=>({id:uid(),text:o,payout:Math.round(m.pay/m.obj.length),enabled:true,by:''}));
+const vsLine=NB?` Opposed contract: ${S.brigades.map(b=>b.name).join(' vs ')} — each side has its own objective.`:'';
+return {gameDateId:gid,title:`${m.t} — Op ${opNo}`,type:m.t,backstory:`[${S.era}] ${m.d} Employer: ${['Federated Suns','Draconis Combine','Free Worlds League','Hinterlands militia','Independent corp'][Math.floor(Math.random()*5)]}.${vsLine}`,objectives:objs,map:m.map,opfor,salvage:{}}}
 document.getElementById('genBtn').onclick=()=>{
 const gid=document.getElementById('genDate').value;if(!gid)return toast('Create a game date first');
 const n=+document.getElementById('genCount').value||10;
 const pool=[...MISSIONS].sort(()=>Math.random()-.5).slice(0,Math.min(n,MISSIONS.length));
 while(pool.length<n)pool.push(MISSIONS[Math.floor(Math.random()*MISSIONS.length)]);
-pool.forEach((m,idx)=>{const opfor=['Green (+0)','Regular (+5% BV)','Veteran (+12% BV, -1 enemy skill)','Elite (+20% BV, -2 skill)'][Math.floor(Math.random()*4)];
-const NB=S.brigades.length;
-const FALLBACK_V=['{B}: seize the primary objective before the rivals','{B}: deny the rivals their objective at all costs','{B}: exploit the chaos — grab what you can and withdraw'];
-const objs=NB?S.brigades.map((bg,i)=>{const t=((m.v&&m.v.length?m.v:FALLBACK_V)[i%((m.v&&m.v.length?m.v:FALLBACK_V).length)]);return {id:uid(),text:t.replace(/\{B\}/g,bg.name),payout:Math.round(m.pay/NB),enabled:true,by:bg.id}}):m.obj.map(o=>({id:uid(),text:o,payout:Math.round(m.pay/m.obj.length),enabled:true,by:''}));
-const vsLine=NB?` Opposed contract: ${S.brigades.map(b=>b.name).join(' vs ')} — each side has its own objective.`:'';
-S.scenarios.push({id:uid(),gameDateId:gid,title:`${m.t} — Op ${String(S.scenarios.length+1).padStart(2,'0')}`,type:m.t,backstory:`[${S.era}] ${m.d} Employer: ${['Federated Suns','Draconis Combine','Free Worlds League','Hinterlands militia','Independent corp'][Math.floor(Math.random()*5)]}.${vsLine}`,objectives:objs,map:m.map,opfor,status:'available',salvage:{}})});
+pool.forEach((m)=>{S.scenarios.push(Object.assign({id:uid(),status:'available'},buildScenarioFields(gid,String(S.scenarios.length+1).padStart(2,'0'),m)))});
 save();renderAll();toast(`Generated ${n} scenarios`)};
 function sayText(s){const objs=(s.objectives||[]).filter(o=>o.enabled);return `${s.title}. ${s.backstory||''} ${objs.length?`Objectives: ${objs.map((o,i)=>`${i+1}. ${o.text}`).join(' ')}`:'No active objectives.'} Opposing force: ${s.opfor||'unknown'}.`}
 function sayLabel(id){const ok='speechSynthesis' in window;const sy=ok&&window.speechSynthesis.speaking,pa=ok&&window.speechSynthesis.paused;if(sayId===id&&sy&&!pa)return '⏸ Pause';if(sayId===id&&pa)return '▶ Resume';return '🔊 Read'}
@@ -223,7 +225,7 @@ function renderScens(){const el=document.getElementById('scenarioList');el.inner
 let list=S.scenarios.filter(s=>s.status!=='discarded');
 if(!document.getElementById('includeOld').checked){const gid=document.getElementById('genDate').value;list=list.filter(s=>s.gameDateId===gid)}
 list.forEach(s=>{const d=document.createElement('div');d.className='scen'+(s.status==='active'?' active':'')+(s.id===S.selScenario?' selected':'');
-d.innerHTML=`${s.status==='available'?`<button class="btn small x" data-sdel="${s.id}" title="Permanently delete this available contract">x</button>`:''}<span class="pill">AVAILABLE</span> <span class="hint">${s.gameDateId?'':''}</span><h3>${s.title}</h3><p>${s.backstory}</p><p class="hint">OpFor: ${s.opfor} | Map ${s.map.size} ${s.map.loc}</p><p class="hint">Payouts total: <b>${s.objectives.filter(o=>o.enabled).reduce((t,o)=>t+(+o.payout||0),0).toLocaleString()} C</b> (${s.objectives.filter(o=>o.enabled).length}/${s.objectives.length} objectives)</p><div class="row"><button class="btn small" data-view="${s.id}">Review</button><button class="btn small" data-act="${s.id}">Activate</button><button class="btn small" data-dis="${s.id}">Remove</button><button class="btn small" data-say="${s.id}">${sayLabel(s.id)}</button></div>`;
+d.innerHTML=`${(s.status==='available'||s.id===S.selScenario)?`<button class="btn small x" data-sdel="${s.id}" title="Permanently delete this contract">x</button><button class="btn small rx" data-sref="${s.id}" title="Regenerate this contract (keeps its Op number)">↻</button>`:''}<span class="pill">AVAILABLE</span> <span class="hint">${s.gameDateId?'':''}</span><h3>${s.title}</h3><p>${s.backstory}</p><p class="hint">OpFor: ${s.opfor} | Map ${s.map.size} ${s.map.loc}</p><p class="hint">Payouts total: <b>${s.objectives.filter(o=>o.enabled).reduce((t,o)=>t+(+o.payout||0),0).toLocaleString()} C</b> (${s.objectives.filter(o=>o.enabled).length}/${s.objectives.length} objectives)</p><div class="row"><button class="btn small" data-view="${s.id}">Review</button><button class="btn small" data-act="${s.id}">Activate</button><button class="btn small" data-dis="${s.id}">Remove</button><button class="btn small" data-say="${s.id}">${sayLabel(s.id)}</button></div>`;
 el.appendChild(d)});
 const removed=S.scenarios.filter(s=>s.status==='discarded');
 if(removed.length){const bin=document.createElement('div');bin.className='card';
@@ -237,6 +239,7 @@ el.querySelectorAll('[data-act]').forEach(b=>b.onclick=()=>{const t=S.scenarios.
 el.querySelectorAll('[data-dis]').forEach(b=>b.onclick=async()=>{const s=S.scenarios.find(x=>x.id===b.dataset.dis);if(!s)return;if(!await confirmDlg(`Remove scenario '${s.title}' from the available list? You can restore or permanently delete it under Removed scenarios.`,'Remove'))return;s.status='discarded';if(S.selScenario===s.id)S.selScenario=null;if(S.activePredrop===s.id)S.activePredrop=null;save();renderAll()});
 el.querySelectorAll('[data-res]').forEach(b=>b.onclick=()=>{const s=S.scenarios.find(x=>x.id===b.dataset.res);if(!s)return;s.status='available';save();renderAll();toast(`Restored '${s.title}' to the available list`)});
 el.querySelectorAll('[data-sdel]').forEach(b=>b.onclick=async()=>{const s=S.scenarios.find(x=>x.id===b.dataset.sdel);if(!s)return;if(!await confirmDlg(`Permanently delete scenario '${s.title}'? This cannot be undone.`,'Delete'))return;S.scenarios=S.scenarios.filter(x=>x.id!==s.id);if(S.selScenario===s.id)S.selScenario=null;if(S.activePredrop===s.id)S.activePredrop=null;save();renderAll()});
+el.querySelectorAll('[data-sref]').forEach(b=>b.onclick=async()=>{const s=S.scenarios.find(x=>x.id===b.dataset.sref);if(!s)return;if(!await confirmDlg(`Regenerate '${s.title}'? Mission, objectives, payouts, map and OpFor will be re-rolled — the Op number stays.`,'Regenerate'))return;const opNo=(s.title.match(/— Op (\d+)\s*$/)||[])[1]||'01';Object.assign(s,buildScenarioFields(s.gameDateId,opNo,randMission(s.type)));save();renderAll();toast(`Regenerated as '${s.title}'`)});
 renderInspector();renderPredropSel();renderScenTabs()}
 function renderInspector(){const el=document.getElementById('inspector');const s=S.scenarios.find(x=>x.id===S.selScenario);
 if(!s){el.innerHTML='<p class="hint">Select a scenario.</p>';return}
