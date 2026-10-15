@@ -355,9 +355,17 @@ el.querySelectorAll('[data-oreq]').forEach(c=>c.onchange=()=>{const[si,oi]=c.dat
 el.querySelectorAll('[data-sal]').forEach(c=>c.oninput=()=>{const[si,bi]=c.dataset.sal.split(':');const sc=S.scenarios.find(x=>x.id===si);if(!sc)return;sc.salvage[bi]=+c.value;balanceSalvage(sc,bi);S.brigades.forEach(b=>{const v=sc.salvage[b.id]||0;const s2=el.querySelector('[data-sal="'+si+':'+b.id+'"]');if(s2)s2.value=v;const lab=el.querySelector('[data-salv="'+si+':'+b.id+'"]');if(lab)lab.textContent=v+'%'});save()});
 }
 // PREDROP
-function renderPredropSel(){const sel=document.getElementById('predropSelect');const act=S.scenarios.filter(s=>s.status==='active'||s.status==='available');sel.innerHTML=act.map(s=>`<option value="${s.id}" ${s.id===S.activePredrop?'selected':''}>${s.title} [${s.status}]</option>`).join('')||'<option value="">—</option>';if(!S.activePredrop&&act[0])S.activePredrop=act[0].id;sel.onchange=()=>{S.activePredrop=sel.value;save();renderPredrop()};renderPredrop()}
-document.getElementById('refreshPredrop').onclick=()=>renderPredrop();
-function renderPredrop(){const el=document.getElementById('predropOut');const s=S.scenarios.find(x=>x.id===S.activePredrop);if(!s){el.innerHTML='<p class="hint">No scenario selected.</p>';return}
+function upcomingPredrop(){const up=upcomingGameId();if(!up)return null;return S.scenarios.find(s=>s.gameDateId===up&&s.status==='active')||null}
+function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function renderPredropSel(){const s=upcomingPredrop();S.activePredrop=s?s.id:null;renderPredropInfo();renderPredrop()}
+function renderPredropInfo(){const el=document.getElementById('predropInfo');if(!el)return;const up=S.dates.find(g=>g.id===upcomingGameId());
+if(!up){el.innerHTML='<p class="hint">No upcoming game date. Add one on the Schedule tab.</p>';return}
+const glink=`<b>${up.date}</b>${up.note?' — '+escH(up.note):''}`;
+const s=upcomingPredrop();
+if(!s){el.innerHTML=`<p><b>Game Date:</b> ${glink} <span class="pill upcoming">UPCOMING</span></p><p class="hint">No contract signed for the upcoming game yet — visit the Scenarios section to commit and sign one.</p><button class="btn glow" id="predropGoScen">✦ Go to Scenarios</button>`;
+const go=el.querySelector('#predropGoScen');if(go)go.onclick=()=>{const t=document.querySelector('.tab[data-tab="scenarios"]');if(t)t.click();scenTab='select';renderScens()};return}
+el.innerHTML=`<p><b>Game Date:</b> ${glink} <span class="pill upcoming">UPCOMING</span></p><p><b>Signed contract:</b> ${escH(s.title)}</p>`}
+function renderPredrop(){const el=document.getElementById('predropOut');const s=S.scenarios.find(x=>x.id===S.activePredrop);if(!s){el.innerHTML='<p class="hint">No signed contract for the upcoming game.</p>';return}
 const M=S.mode||'TW'; // Pre-Drop is a planning view: it always follows the top-bar mode
 const DM=scenMode(s); // the scenario's recorded date mode (history)
 function pdFin(b,a){const m=b.inventory.find(x=>x.id===a.mech);if(!m)return null;const p=b.roster.find(x=>x.id===a.pilot);
