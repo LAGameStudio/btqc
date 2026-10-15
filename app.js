@@ -62,9 +62,11 @@ function pvSkill(g,p){return Math.max(8,Math.round((g+p)*2.2))} // rough AS PV w
 function adjBV(bv,g,p){return Math.round(bv*bvMult(g,p))}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2200)}
 // Themed modal confirm (replaces native popup dialogs); resolves true on Confirm.
+let _confirmRes=null; // pending confirmDlg resolver; a new dialog settles a stale one so no promise hangs
 function confirmDlg(msg,okLabel){return new Promise(res=>{const ov=document.getElementById('dlgOverlay');if(!ov)return res(true);
+if(_confirmRes)_confirmRes(false);_confirmRes=res;
 document.getElementById('dlgMsg').textContent=msg;document.getElementById('dlgOk').textContent=okLabel||'Confirm';ov.hidden=false;
-const done=v=>{ov.hidden=true;document.getElementById('dlgOk').onclick=null;document.getElementById('dlgCancel').onclick=null;ov.onclick=null;document.removeEventListener('keydown',esc);res(v)};
+const done=v=>{ov.hidden=true;document.getElementById('dlgOk').onclick=null;document.getElementById('dlgCancel').onclick=null;ov.onclick=null;document.removeEventListener('keydown',esc);if(_confirmRes===res)_confirmRes=null;res(v)};
 const esc=e=>{if(e.key==='Escape')done(false)};
 document.getElementById('dlgOk').onclick=()=>done(true);document.getElementById('dlgCancel').onclick=()=>done(false);
 ov.onclick=e=>{if(e.target===ov)done(false)};document.addEventListener('keydown',esc);
