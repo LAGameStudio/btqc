@@ -41,6 +41,7 @@ function save(){localStorage.setItem(LS,JSON.stringify(S));}
 let S=load()||{era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[],outcomes:[],selScenario:null,activePredrop:null};
 if(!Array.isArray(S.outcomes))S.outcomes=[];
 S.dates.forEach(g=>{if(g.mode!=='TW'&&g.mode!=='AS')g.mode=S.mode||'TW'});
+S.scenarios.forEach(s=>{if(s.backstory)s.backstory=String(s.backstory).replace(/^\[[^\]]*\]\s*/,'')});
 S.brigades.forEach(b=>{if(!Array.isArray(b.memorial))b.memorial=[];
 if(!Array.isArray(b.ledger))b.ledger=[{id:uid(),label:'Initial Investment',amount:Math.round(+b.cbills||40000000),ignored:false,outcomeId:null,date:todayStr()}];
 (b.ledger||[]).forEach(l=>{if(!l.date)l.date=todayStr()});
@@ -207,7 +208,7 @@ const NB=S.brigades.length;
 const FALLBACK_V=['{B}: seize the primary objective before the rivals','{B}: deny the rivals their objective at all costs','{B}: exploit the chaos — grab what you can and withdraw'];
 const objs=NB?S.brigades.map((bg,i)=>{const t=((m.v&&m.v.length?m.v:FALLBACK_V)[i%((m.v&&m.v.length?m.v:FALLBACK_V).length)]);return {id:uid(),text:t.replace(/\{B\}/g,bg.name),payout:Math.round(m.pay/NB),enabled:true,by:bg.id}}):m.obj.map(o=>({id:uid(),text:o,payout:Math.round(m.pay/m.obj.length),enabled:true,by:''}));
 const vsLine=NB?` Opposed contract: ${S.brigades.map(b=>b.name).join(' vs ')} — each side has its own objective.`:'';
-return {gameDateId:gid,title:`${m.t} — Op ${opNo}`,type:m.t,backstory:`[${S.era}] ${m.d} Employer: ${['Federated Suns','Draconis Combine','Free Worlds League','Hinterlands militia','Independent corp'][Math.floor(Math.random()*5)]}.${vsLine}`,objectives:objs,map:m.map,opfor,salvage:{}}}
+return {gameDateId:gid,title:`${m.t} — Op ${opNo}`,type:m.t,backstory:`${m.d} Employer: ${['Federated Suns','Draconis Combine','Free Worlds League','Hinterlands militia','Independent corp'][Math.floor(Math.random()*5)]}.${vsLine}`,objectives:objs,map:m.map,opfor,salvage:{}}}
 document.getElementById('genBtn').onclick=()=>{
 const gid=document.getElementById('genDate').value;if(!gid)return toast('Create a game date first');
 const n=+document.getElementById('genCount').value||10;
@@ -555,7 +556,7 @@ const p=parsedImport;
 if(p.meta.era&&ERAS.includes(p.meta.era))S.era=p.meta.era;
 if(p.meta.mode==='TW'||p.meta.mode==='AS')setMode(p.meta.mode);
 p.forces.forEach(f=>{if(!f.brigade||!f.mech)return;const b=brigadeByName(f.brigade);const m=mechForInventory(b,f.mech);if(!m)return;const r=f.pilot?pilotForRoster(b,f.pilot,f.gp):null;b.active.push({mech:m.id,pilot:r?r.id:'',on:true})});
-const sc={id:uid(),gameDateId:gid,title:'Imported Contract — '+new Date().toISOString().slice(0,10),type:'Imported',backstory:`[${S.era}] Imported from Sheets CSV${p.meta.exported?` (exported ${p.meta.exported})`:''}.`,objectives:p.objectives.map(o=>({id:uid(),text:o.text,payout:o.payout,enabled:o.enabled,by:o.by?((S.brigades.find(b=>b.name.toLowerCase()===o.by.toLowerCase())||{}).id||''):''})),map:{size:p.map.size||'36x36',loc:p.map.loc||'Unknown',ter:p.map.ter||'Unknown',cond:p.map.cond||'Clear'},opfor:'Imported (as listed)',status:'active',salvage:{}};
+const sc={id:uid(),gameDateId:gid,title:'Imported Contract — '+new Date().toISOString().slice(0,10),type:'Imported',backstory:`Imported from Sheets CSV${p.meta.exported?` (exported ${p.meta.exported})`:''}.`,objectives:p.objectives.map(o=>({id:uid(),text:o.text,payout:o.payout,enabled:o.enabled,by:o.by?((S.brigades.find(b=>b.name.toLowerCase()===o.by.toLowerCase())||{}).id||''):''})),map:{size:p.map.size||'36x36',loc:p.map.loc||'Unknown',ter:p.map.ter||'Unknown',cond:p.map.cond||'Clear'},opfor:'Imported (as listed)',status:'active',salvage:{}};
 S.scenarios.forEach(x=>{if(x.gameDateId===gid&&x.status==='active')x.status='available'});
 S.scenarios.push(sc);S.selScenario=sc.id;S.activePredrop=sc.id;parsedImport=null;document.getElementById('csvText').value='';document.getElementById('csvFile').value='';
 save();renderAll();renderImportPreview();toast('Import applied — see Brigades & Pre-Drop')};
