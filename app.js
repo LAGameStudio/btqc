@@ -736,10 +736,28 @@ save();renderAll();renderImportPreview();toast('Import applied — see Brigades 
 // SETTINGS
 function renderMechRef(){const ref=document.getElementById('mechRef');if(!ref)return;const show=MECHS.slice(0,120);ref.innerHTML=`<p class="hint">Source: ${MECH_SOURCE}. Showing ${show.length} of ${MECHS.length.toLocaleString()} — use Brigade search to find any unit. Icon = battlefield role; weight class is the fallback.</p>`+show.map(m=>`<div class="pill" title="${ROLE_LABELS[m.rl]||m.rl||'Role unknown'} — ${m.wc||''} ${m.tons||''}t ${m.yr||''}">${m.ico} ${m.n} ${m.bv}BV/${m.pv}PV</div>`).join('');const h=ref.previousElementSibling;if(h&&h.tagName==='H3')h.textContent=`Mech Catalog — ${MECHS.length.toLocaleString()} units (BV/PV/C-Bills)`}
 renderMechRef();
-document.getElementById('seedBtn').onclick=async()=>{if(!await confirmDlg('Load demo campaign? This replaces dates and brigades.','Load demo'))return;S.dates=[{id:uid(),date:new Date().toISOString().slice(0,10),note:'Shop Night — demo',status:'open',locked:false,mode:S.mode||'TW'}];
+function seedChoiceDlg(){return new Promise(res=>{
+const ov=document.getElementById('dlgOverlay');if(!ov)return res(null);
+const T=document.getElementById('dlgTitle'),M=document.getElementById('dlgMsg'),ok=document.getElementById('dlgOk'),cx=document.getElementById('dlgCancel');
+T.textContent='Load Demo Campaign';
+M.innerHTML=`<p class="hint">The demo brings one game date ('Shop Night — demo') and the 'Iron Jackals' brigade (Marauder + Hunchback, two pilots).</p><label style="display:block;margin:6px 0"><input type="radio" name="seedMode" value="append" checked> Append — add the demo alongside your current dates and brigades (nothing is removed)</label><label style="display:block;margin:6px 0"><input type="radio" name="seedMode" value="replace"> Replace — discard current dates and brigades, keep only the demo (asks for confirmation)</label>`;
+ok.textContent='Load';
+ov.hidden=false;ok.focus();
+const done=v=>{ov.hidden=true;ok.onclick=null;cx.onclick=null;ov.onclick=null;document.removeEventListener('keydown',esc);ok.textContent='Confirm';T.textContent='Confirm';M.textContent='';res(v)};
+const esc=e=>{if(e.key==='Escape')done(null)};
+ok.onclick=()=>{const r=document.querySelector('input[name="seedMode"]:checked');done(r?r.value:null)};
+cx.onclick=()=>done(null);
+ov.onclick=e=>{if(e.target===ov)done(null)};
+document.addEventListener('keydown',esc)})}
+document.getElementById('seedBtn').onclick=async()=>{const mode=await seedChoiceDlg();if(!mode)return;
 const pick=n=>{const m=MECHS.find(v=>v.n.toLowerCase().includes(n.toLowerCase()))||MECHS[0];const {canon,...rest}=m;return {id:uid(),...rest}};
-const b1={id:uid(),name:'Iron Jackals',employer:'Federated Suns',ledger:newLedger(),log:newLog(),retired:false,inventory:[pick('Marauder MAD-3R'),pick('Hunchback HBK-4G')],roster:[{id:uid(),n:'Vera "Hammer" Kao',g:3,p:4},{id:uid(),n:'Dax Renn',g:4,p:5}],active:[],dropship:true,memorial:[]};
-b1.active=[{mech:b1.inventory[0].id,pilot:b1.roster[0].id,on:true},{mech:b1.inventory[1].id,pilot:b1.roster[1].id,on:true}];S.brigades=[b1];save();renderAll()};
+const demoDate=()=>({id:uid(),date:new Date().toISOString().slice(0,10),note:'Shop Night — demo',status:'open',locked:false,mode:S.mode||'TW'});
+const demoBrigade=()=>{const b={id:uid(),name:'Iron Jackals',employer:'Federated Suns',ledger:newLedger(),log:newLog(),retired:false,inventory:[pick('Marauder MAD-3R'),pick('Hunchback HBK-4G')],roster:[{id:uid(),n:'Vera "Hammer" Kao',g:3,p:4},{id:uid(),n:'Dax Renn',g:4,p:5}],active:[],dropship:true,memorial:[]};
+b.active=[{mech:b.inventory[0].id,pilot:b.roster[0].id,on:true},{mech:b.inventory[1].id,pilot:b.roster[1].id,on:true}];return b};
+if(mode==='replace'){if(!await confirmDlg('Replace ALL current dates and brigades with the demo campaign? This cannot be undone.','Replace'))return;
+S.dates=[demoDate()];S.brigades=[demoBrigade()];save();renderAll();toast('Demo campaign loaded (replaced)')}
+else{const b=demoBrigade();let nm=b.name,k=2;while(S.brigades.some(x=>x.name===nm))nm=`${b.name} (${k++})`;b.name=nm;
+S.dates.push(demoDate());S.brigades.push(b);save();renderAll();toast(`Demo appended — '${b.name}' added`)}};
 document.getElementById('wipeBtn').onclick=async()=>{if(await confirmDlg('Wipe all data? This cannot be undone.','Wipe all')){S={era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[],outcomes:[],selScenario:null,activePredrop:null};save();renderAll()}};
 document.getElementById('jsonBtn').onclick=()=>{const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bt-backup.json';a.click()};
 document.getElementById('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{S=JSON.parse(r.result);save();renderAll()};r.readAsText(f)};
