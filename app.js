@@ -49,6 +49,7 @@ if(!Array.isArray(b.ledger))b.ledger=[{id:uid(),label:'Initial Investment',amoun
 (b.ledger||[]).forEach(l=>{if(!l.date)l.date=todayStr()});
 if(!Array.isArray(b.log))b.log=[];
 if(b.retired!==true)b.retired=false;
+if(!b.importedFrom){const m=(b.log||[]).map(e=>e.msg||'').join('\n').match(/Imported from series '([^']+)'/);if(m)b.importedFrom={seriesId:((S.series||[]).find(s=>s.name===m[1])||{}).id||null,seriesName:m[1]}}
 delete b.cbills});
 function snapOf(S){return JSON.parse(JSON.stringify({dates:S.dates,brigades:S.brigades,scenarios:S.scenarios,outcomes:S.outcomes,selScenario:S.selScenario,activePredrop:S.activePredrop}))}
 function applySnap(s){S.dates=s.dates||[];S.brigades=s.brigades||[];S.scenarios=s.scenarios||[];S.outcomes=s.outcomes||[];S.selScenario=s.selScenario||null;S.activePredrop=s.activePredrop||null}
@@ -162,7 +163,7 @@ liveBrigs().forEach(b=>{const d=document.createElement('div');d.className='brig'
 const mechValue=b.inventory.reduce((s,m)=>s+(+m.cb||0),0);
 let tot=S.mode==='TW'?b.active.filter(a=>a.on).reduce((s,a)=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);return s+(m?adjBV(m.bv,p?p.g:4,p?p.p:5):0)},0):b.active.filter(a=>a.on).reduce((s,a)=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);return s+(m?m.pv+(p?pvSkill(p.g,p.p)-18:0):0)},0);
 const be=brigEdit.has(b.id),escQ=s=>String(s||'').replace(/"/g,'&quot;');const tab=brigTab[b.id]||'mechs';const catShut=!catOpen.has(b.id);
-d.innerHTML=`<div class="foldertab">${be?`<input value="${escQ(b.name)}" data-bname="${b.id}" style="font-family:Orbitron;min-width:100px;max-width:170px" title="Brigade name"><input value="${escQ(b.employer)}" data-bemp="${b.id}" style="min-width:90px;max-width:140px" title="Employer">`:`<b>${b.name}</b> <span class="pill">${b.employer}</span>`}</div><div class="row"><span>C-Bills ($): <b>${ledgerTotal(b).toLocaleString()}</b></span><span>Mechs value: <b>${mechValue.toLocaleString()} C-Bills</b></span><span>Upkeep/mo: <b>${upkeep(b).toLocaleString()} C</b></span><span>Deployed: <b>${tot.toLocaleString()} ${S.mode==='TW'?'BV':'PV'}</b></span>${be?`<button class="btn small" data-bsave="${b.id}">Save</button><button class="btn small" data-bcancel="${b.id}">Cancel</button>`:`<button class="btn small" data-bedit="${b.id}">Edit</button>`}<button class="btn small" data-del="${b.id}">Delete</button><button class="btn small" data-retire="${b.id}">Retire</button><button class="btn small" data-share="${b.id}" title="Share this brigade as an ODS file (Web Share, or download)">Share</button></div>
+d.innerHTML=`<div class="foldertab">${be?`<input value="${escQ(b.name)}" data-bname="${b.id}" style="font-family:Orbitron;min-width:100px;max-width:170px" title="Brigade name"><input value="${escQ(b.employer)}" data-bemp="${b.id}" style="min-width:90px;max-width:140px" title="Employer">`:`<b>${b.name}</b> <span class="pill">${b.employer}</span>`}</div><div class="row"><span>C-Bills ($): <b>${ledgerTotal(b).toLocaleString()}</b></span><span>Mechs value: <b>${mechValue.toLocaleString()} C-Bills</b></span><span>Upkeep/mo: <b>${upkeep(b).toLocaleString()} C</b></span><span>Deployed: <b>${tot.toLocaleString()} ${S.mode==='TW'?'BV':'PV'}</b></span>${be?`<button class="btn small" data-bsave="${b.id}">Save</button><button class="btn small" data-bcancel="${b.id}">Cancel</button>`:`<button class="btn small" data-bedit="${b.id}">Edit</button>`}<button class="btn small" data-del="${b.id}">Delete</button><button class="btn small" data-retire="${b.id}">Retire</button>${b.importedFrom?`<button class="btn small" data-sync="${b.id}" title="Sync from the same-named brigade in another series">Sync</button>`:''}<button class="btn small" data-share="${b.id}" title="Share this brigade as an ODS file (Web Share, or download)">Share</button></div>
 ${brigTabBar(b,tab)}
 <div data-bpane="mechs" style="${tab==='mechs'?'':'display:none'}"><div><div class="catbox"><h5><button class="btn small" data-cat="${b.id}" title="${catShut?'Unfold':'Fold'} Mech Catalog">${catShut?'▸':'▾'}</button> Mech Catalog <span class="hint">${MECHS.length.toLocaleString()} available</span></h5><div class="row"${catShut?' style="display:none"':''}><input placeholder="🔍 Search ${MECHS.length.toLocaleString()} mechs…" data-msearch="${b.id}" style="flex:1;min-width:140px"><button class="btn small" data-addm="${b.id}">+ Add selected</button></div><div class="row"${catShut?' style="display:none"':''}><select data-msel="${b.id}" style="width:100%">${MECHS.slice(0,50).map(m=>`<option value="${m.n}">${m.ico} ${m.n} — ${val(m)}${m.yr?' · '+m.yr:''}${m.rl&&m.rl!=='None'?' · '+m.rl:''}</option>`).join('')}</select></div></div><h4>Mechs in Depot</h4><table><tr><th></th><th>Mech</th><th>Role</th><th>${S.mode==='TW'?'BV @4/5':'PV'}</th><th>C-Bills</th><th>Era</th><th></th></tr>${b.inventory.map(m=>`<tr><td class="mech-ico" title="${(ROLE_LABELS[roleOf(m)]||'Role: '+roleOf(m))}${flamersOf(m)>=3?` · ${flamersOf(m)} flamers`:''}">${icoFor(roleOf(m),m.wc,flamersOf(m))}</td><td>${m.n}</td><td class="hint">${(ROLE_LABELS[roleOf(m)]||roleOf(m)||'—').replace(/\s*\(.*/,'')}${flamersOf(m)>=3?' 🔥':''}</td><td>${val(m)}</td><td>${m.cb.toLocaleString()}</td><td>${eraTag(m.yr)}</td><td><button class="btn small" data-rmm="${b.id}:${m.id}">x</button></td></tr>`).join('')}</table></div>
 </div>
@@ -173,6 +174,32 @@ el.appendChild(d)});
 el.querySelectorAll('[data-btab]').forEach(x=>x.onclick=()=>{const[bi,t]=x.dataset.btab.split(':');brigTab[bi]=t;save();renderBrigs()});
 el.querySelectorAll('[data-cat]').forEach(x=>x.onclick=()=>{const id=x.dataset.cat;catOpen.has(id)?catOpen.delete(id):catOpen.add(id);renderBrigs()});
 el.querySelectorAll('[data-retire]').forEach(x=>x.onclick=async()=>{const b=S.brigades.find(v=>v.id===x.dataset.retire);if(!b)return;if(!await confirmDlg(`Retire brigade '${b.name}'? It leaves active play and moves to the Retired list (you can restore it later).`,'Retire'))return;b.retired=true;blog(b,'Brigade retired');save();renderAll();toast(`'${b.name}' retired`)});
+el.querySelectorAll('[data-sync]').forEach(x=>x.onclick=async()=>{
+const b=S.brigades.find(v=>v.id===x.dataset.sync);if(!b||!b.importedFrom)return;
+const sid=await syncDlg(b);if(!sid)return;
+const src=S.series.find(s=>s.id===sid);
+const b0=src&&((src.snap.brigades||[]).find(o=>o.name===b.name));if(!b0)return toast('Source brigade not found');
+const cp=JSON.parse(JSON.stringify(b0));
+cp.id=b.id;cp.name=b.name;cp.retired=!!b.retired;cp.log=b.log||[];
+cp.importedFrom={seriesId:src.id,seriesName:src.name};
+S.brigades[S.brigades.indexOf(b)]=cp;
+blog(cp,`Synced from series '${src.name}'`);
+save();renderAll();toast(`'${cp.name}' synced from '${src.name}'`)});
+function syncDlg(b){return new Promise(res=>{
+const ov=document.getElementById('dlgOverlay');if(!ov)return res(null);
+const cands=S.series.filter(s=>s.id!==S.activeSeriesId&&((s.snap.brigades||[]).some(o=>o.name===b.name)));
+if(!cands.length){toast(`No brigade named '${b.name}' in any other series`);return res(null)}
+const T=document.getElementById('dlgTitle'),M=document.getElementById('dlgMsg'),ok=document.getElementById('dlgOk'),cx=document.getElementById('dlgCancel');
+T.textContent=`Sync '${b.name}'`;
+M.innerHTML=`<p class="hint">Copy roster, mechs, ledger and memorial from the same-named brigade in:</p><label>Series <select id="syncSeries" style="width:100%">${cands.map(s=>{const o=(s.snap.brigades||[]).find(x=>x.name===b.name);return `<option value="${s.id}">${s.name} (${(o.inventory||[]).length} mechs, ${(o.roster||[]).length} pilots)</option>`}).join('')}</select></label><p class="hint">This overwrites '${b.name}' here (its name and id stay).</p>`;
+ok.textContent='Sync';
+ov.hidden=false;ok.focus();
+const done=v=>{ov.hidden=true;ok.onclick=null;cx.onclick=null;ov.onclick=null;document.removeEventListener('keydown',esc);ok.textContent='Confirm';T.textContent='Confirm';M.textContent='';res(v)};
+const esc=e=>{if(e.key==='Escape')done(null)};
+ok.onclick=()=>done(document.getElementById('syncSeries').value||null);
+cx.onclick=()=>done(null);
+ov.onclick=e=>{if(e.target===ov)done(null)};
+document.addEventListener('keydown',esc)})}
 el.querySelectorAll('[data-share]').forEach(x=>x.onclick=async()=>{const b=S.brigades.find(v=>v.id===x.dataset.share);if(!b)return;try{
 const blob=brigadeODS(b),fname=((b.name||'brigade').replace(/[\\/:*?"<>|]/g,'').trim().slice(0,60)||'brigade')+'.ods';
 const file=new File([blob],fname,{type:'application/vnd.oasis.opendocument.spreadsheet'});
@@ -613,7 +640,7 @@ const src=S.series.find(x=>x.id===pick.seriesId);
 const b0=src&&((src.id===S.activeSeriesId?S.brigades:(src.snap.brigades||[])).find(b=>b.id===pick.brigadeId));if(!b0)return toast('Brigade not found');
 const cp=JSON.parse(JSON.stringify(b0));cp.id=uid();cp.retired=false;
 let nm=cp.name,k=2;while(S.brigades.some(b=>b.name===nm))nm=`${cp.name} (${k++})`;
-cp.name=nm;blog(cp,`Imported from series '${src.name}'`);
+cp.name=nm;cp.importedFrom={seriesId:src.id,seriesName:src.name};blog(cp,`Imported from series '${src.name}'`);
 S.brigades.push(cp);save();renderAll();toast(`Imported '${cp.name}' from '${src.name}'`)};
 function seriesImportDlg(){return new Promise(res=>{
 const ov=document.getElementById('dlgOverlay');if(!ov)return res(null);
