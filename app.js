@@ -295,7 +295,33 @@ el.querySelectorAll('[data-res]').forEach(b=>b.onclick=()=>{const s=S.scenarios.
 el.querySelectorAll('[data-sdel]').forEach(b=>b.onclick=async e=>{const s=S.scenarios.find(x=>x.id===b.dataset.sdel);if(!s)return;if(!await confirmDlg(`Permanently delete scenario '${s.title}'? This cannot be undone.`,'Delete',e))return;S.scenarios=S.scenarios.filter(x=>x.id!==s.id);if(S.selScenario===s.id)S.selScenario=null;if(S.activePredrop===s.id)S.activePredrop=null;save();renderAll()});
 el.querySelectorAll('[data-sref]').forEach(b=>b.onclick=async()=>{const s=S.scenarios.find(x=>x.id===b.dataset.sref);if(!s)return;if(!await confirmDlg(`Regenerate '${s.title}'? Mission, objectives, payouts, map and OpFor will be re-rolled — the Op number stays.`,'Regenerate'))return;const opNo=(s.title.match(/— Op (\d+)\s*$/)||[])[1]||'01';Object.assign(s,buildScenarioFields(s.gameDateId,opNo,randMission(s.type)));save();renderAll();toast(`Regenerated as '${s.title}'`)});
 renderInspector();renderPredropSel();renderScenTabs()}
-function commitSign(id){const t=S.scenarios.find(y=>y.id===id);if(!t)return;S.scenarios.forEach(x=>{if(x.gameDateId===t.gameDateId&&x.status==='active')x.status='available'});t.status='active';S.activePredrop=t.id;save();renderAll();toast(`Committed and signed: '${t.title}'`)}
+function commitDateDlg(cands){return new Promise(res=>{
+const ov=document.getElementById('dlgOverlay');if(!ov)return res(null);
+const T=document.getElementById('dlgTitle'),M=document.getElementById('dlgMsg'),ok=document.getElementById('dlgOk'),cx=document.getElementById('dlgCancel');
+T.textContent='Assign to game date';
+M.innerHTML=`<p class="hint">More than one upcoming game date is open — pick the date this contract is assigned to (only dates without a committed contract are listed):</p><label>Game date <select id="commitDate" style="width:100%">${cands.map(g=>{const nt=String(g.note||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');return `<option value="${g.id}">${g.date}${nt?' — '+nt:''} [${g.mode||S.mode||'TW'}]</option>`}).join('')}</select></label>`;
+ok.textContent='Commit';
+ov.hidden=false;ok.focus();
+const done=v=>{ov.hidden=true;ok.onclick=null;cx.onclick=null;ov.onclick=null;document.removeEventListener('keydown',esc);ok.textContent='Confirm';T.textContent='Confirm';M.textContent='';res(v)};
+const esc=e=>{if(e.key==='Escape')done(null)};
+ok.onclick=()=>done(document.getElementById('commitDate').value||null);
+cx.onclick=()=>done(null);
+ov.onclick=e=>{if(e.target===ov)done(null)};
+document.addEventListener('keydown',esc)})}
+async function commitSign(id){const t=S.scenarios.find(y=>y.id===id);if(!t)return;
+const today=todayStr();
+const cands=S.dates.filter(g=>g.status!=='cancelled'&&!g.locked&&g.date>=today&&!S.scenarios.some(x=>x.id!==t.id&&x.gameDateId===g.id&&x.status==='active'));
+let gid=t.gameDateId;
+if(cands.length===1)gid=cands[0].id;
+else if(cands.length>1){const pick=await commitDateDlg(cands);if(!pick)return;gid=pick}
+t.gameDateId=gid;
+S.scenarios.forEach(x=>{if(x.id!==t.id&&x.gameDateId===gid&&x.status==='active')x.status='available'});
+t.status='active';S.activePredrop=t.id;save();renderAll();
+const gd=S.dates.find(g=>g.id===gid);toast(`Committed and signed: '${t.title}'${gd?` for ${gd.date}`:''}`)}
+function undoCommit(id){const t=S.scenarios.find(y=>y.id===id);if(!t||t.status!=='active')return;
+const g=S.dates.find(x=>x.id===t.gameDateId);
+if(g&&g.date<todayStr()){toast('Cannot undo — the game date is in the past');return}
+t.status='available';if(S.activePredrop===t.id)S.activePredrop=null;save();renderAll();toast(`Commit undone: '${t.title}' is available again`)}
 function toggleParticipation(sid,bid,on){const s=S.scenarios.find(x=>x.id===sid),b=S.brigades.find(x=>x.id===bid);if(!s||!b)return;s.sides=s.sides||[];
 if(on){if(s.sides.some(x=>x.brigadeId===bid))return;const used=s.sides.map(x=>x.role);const role=!used.includes('Attacker')?'Attacker':!used.includes('Defender')?'Defender':'Raider';const sd={id:uid(),role,brigadeId:bid};s.sides.push(sd);const m=MISSIONS.find(x=>x.t===s.type);if(m)s.objectives.push(...genSideObjectives(m,sd,b,Math.max(1,s.sides.length)));else s.objectives.push({id:uid(),text:`${b.name}: take the field`,payout:0,enabled:true,required:true,auto:false,by:bid,sideId:sd.id});refreshBackstory(s);save();renderAll();toast(`'${b.name}' joined as ${role}`)}
 else{const sd=s.sides.find(x=>x.brigadeId===bid);if(!sd)return;s.sides=s.sides.filter(x=>x!==sd);s.objectives=(s.objectives||[]).filter(o=>o.sideId!==sd.id);refreshBackstory(s);save();renderAll();toast(`'${b.name}' left the contract`)}}
@@ -306,7 +332,9 @@ function initSalvage(s){if(!s.salvage)s.salvage={};if(Object.keys(s.salvage).len
 function renderInspector(){const el=document.getElementById('inspector');const s=S.scenarios.find(x=>x.id===S.selScenario);
 if(!s){el.innerHTML='<p class="hint">Select a scenario.</p>';return}
 initSalvage(s);
-el.innerHTML=`<h3>${s.title} <button class="btn small" data-say="${s.id}">${sayLabel(s.id)}</button></h3><div class="row"><span class="pill ${s.status==='active'?'contemp':'cancel'}">${s.status==='active'?'COMMITTED & SIGNED':'AVAILABLE'}</span><button class="btn glow" data-commit="${s.id}" ${s.status==='active'?'disabled':''} title="Commit to this contract and sign it — makes it the active scenario">${s.status==='active'?'✓ Committed & Signed':'Commit and Sign'}</button></div><p>${s.backstory}</p><p><b>OpFor modifier:</b> ${s.opfor}</p>
+const _gd=S.dates.find(g=>g.id===s.gameDateId);
+const _canUndo=s.status==='active'&&(!_gd||_gd.date>=todayStr());
+el.innerHTML=`<h3>${s.title} <button class="btn small" data-say="${s.id}">${sayLabel(s.id)}</button></h3><div class="row"><span class="pill ${s.status==='active'?'contemp':'cancel'}">${s.status==='active'?'COMMITTED & SIGNED':'AVAILABLE'}</span><button class="btn glow" data-commit="${s.id}" ${s.status==='active'?'disabled':''} title="Commit to this contract and sign it — makes it the active scenario">${s.status==='active'?'✓ Committed & Signed':'Commit and Sign'}</button>${_canUndo?`<button class="btn small" data-undo="${s.id}" title="Undo the commit — the contract returns to available">Undo</button>`:''}</div><p>${s.backstory}</p><p><b>OpFor modifier:</b> ${s.opfor}</p>
 <p><b>Map:</b> ${s.map.size} — ${s.map.loc} — ${s.map.ter} — ${s.map.cond}</p>
 <h4>Sides & Participation</h4>${liveBrigs().map(b=>{const sd=(s.sides||[]).find(x=>x.brigadeId===b.id);const mine=sd?(s.objectives||[]).filter(o=>o.sideId===sd.id):[];return `<div class="row"><label class="check"><input type="checkbox" data-part="${s.id}:${b.id}" ${sd?'checked':''}> ${b.name}</label>${sd?`<label>Side <select data-prole="${s.id}:${b.id}">${SIDE_ROLES.map(r=>`<option ${sd.role===r?'selected':''}>${r}</option>`).join('')}</select></label><span class="hint">${mine.length} objective(s), ${mine.filter(o=>o.required).length} required</span>`:'<span class="hint">not participating</span>'}`}).join('')||'<p class="hint">No brigades yet.</p>'}
 <h4>Objectives (required / accept / enable)</h4><table><tr><th>Req</th><th>✓</th><th>Objective</th><th>Payout C</th><th>Side</th><th>Accepted by</th></tr>${s.objectives.map(o=>`<tr><td><input type="checkbox" ${o.required?'checked':''} data-oreq="${s.id}:${o.id}" title="Required objective — each side needs at least one"></td><td><input type="checkbox" ${o.enabled?'checked':''} data-oen="${s.id}:${o.id}"></td><td>${o.text}${o.required?' <span class="pill contemp">REQ</span>':''}</td><td><input type="number" value="${o.payout}" style="width:110px" data-opay="${s.id}:${o.id}"></td><td>${((s.sides||[]).find(x=>x.id===o.sideId)||{}).role||'—'}</td><td><select data-oby="${s.id}:${o.id}"><option value="">—</option>${S.brigades.map(b=>`<option ${o.by===b.id?'selected':''} value="${b.id}">${b.name}</option>`).join('')}</select></td></tr>`).join('')}</table>
@@ -314,6 +342,7 @@ el.innerHTML=`<h3>${s.title} <button class="btn small" data-say="${s.id}">${sayL
 <h4>Salvage Rights %</h4>${S.brigades.map(b=>`<div class="row"><span>${b.name}</span><input type="range" min="0" max="100" value="${s.salvage[b.id]||0}" data-sal="${s.id}:${b.id}"><span data-salv="${s.id}:${b.id}">${s.salvage[b.id]||0}%</span></div>`).join('')||'<p class="hint">No brigades yet.</p>'}`;
 el.querySelectorAll('[data-say]').forEach(b=>b.onclick=()=>sayToggle(b.dataset.say));
 el.querySelectorAll('[data-commit]').forEach(b=>b.onclick=()=>commitSign(b.dataset.commit));
+el.querySelectorAll('[data-undo]').forEach(b=>b.onclick=()=>undoCommit(b.dataset.undo));
 el.querySelectorAll('[data-oen]').forEach(c=>c.onchange=()=>{const[si,oi]=c.dataset.oen.split(':');S.scenarios.find(x=>x.id===si).objectives.find(o=>o.id===oi).enabled=c.checked;save();renderInspector();renderScens()});
 el.querySelectorAll('[data-opay]').forEach(c=>c.onchange=()=>{const[si,oi]=c.dataset.opay.split(':');S.scenarios.find(x=>x.id===si).objectives.find(o=>o.id===oi).payout=+c.value;save();renderInspector();renderScens()});
 el.querySelectorAll('[data-oby]').forEach(c=>c.onchange=()=>{const[si,oi]=c.dataset.oby.split(':');const sc=S.scenarios.find(x=>x.id===si);const o=sc&&sc.objectives.find(x=>x.id===oi);if(!o)return;o.by=c.value;const sd=(sc.sides||[]).find(x=>x.brigadeId===c.value);o.sideId=sd?sd.id:null;save();renderInspector()});
