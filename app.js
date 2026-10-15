@@ -358,17 +358,26 @@ el.querySelectorAll('[data-sal]').forEach(c=>c.oninput=()=>{const[si,bi]=c.datas
 function renderPredropSel(){const sel=document.getElementById('predropSelect');const act=S.scenarios.filter(s=>s.status==='active'||s.status==='available');sel.innerHTML=act.map(s=>`<option value="${s.id}" ${s.id===S.activePredrop?'selected':''}>${s.title} [${s.status}]</option>`).join('')||'<option value="">—</option>';if(!S.activePredrop&&act[0])S.activePredrop=act[0].id;sel.onchange=()=>{S.activePredrop=sel.value;save();renderPredrop()};renderPredrop()}
 document.getElementById('refreshPredrop').onclick=()=>renderPredrop();
 function renderPredrop(){const el=document.getElementById('predropOut');const s=S.scenarios.find(x=>x.id===S.activePredrop);if(!s){el.innerHTML='<p class="hint">No scenario selected.</p>';return}
-let rows='';let grandTW=0,grandAS=0;const M=scenMode(s);
-liveBrigs().forEach(b=>{b.active.filter(a=>a.on).forEach(a=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);if(!m)return;
+const M=scenMode(s);
+function pdFin(b,a){const m=b.inventory.find(x=>x.id===a.mech);if(!m)return null;const p=b.roster.find(x=>x.id===a.pilot);
 const base=M==='TW'?m.bv:m.pv;const adj=M==='TW'&&p?adjBV(m.bv,p.g,p.p):(!p?base:(m.pv+(pvSkill(p.g,p.p)-18)));
 const opBonus=M==='TW'?Math.round(adj*0.08):Math.round(adj*0.05); // OpFor + conditions transparent bump
-const fin=adj+opBonus;grandTW+=M==='TW'?fin:0;grandAS+=M==='TW'?0:fin;
-rows+=`<tr><td>${b.name}</td><td class="mech-ico">${m.ico}</td><td>${m.n}</td><td>${p?p.n+' '+p.g+'/'+p.p:'— (4/5)'}</td><td>${base.toLocaleString()}</td><td>${M==='TW'?'x'+(p?bvMult(p.g,p.p):1):(p?'PV skill '+pvSkill(p.g,p.p):'PV 18')}</td><td>+${opBonus} OpFor/terrain</td><td><b>${fin.toLocaleString()}</b></td></tr>`})});
+return {m,p,base,opBonus,fin:adj+opBonus}}
+function pdRow(b,r){return `<tr><td>${b.name}</td><td class="mech-ico">${r.m.ico}</td><td>${r.m.n}</td><td>${r.p?r.p.n+' '+r.p.g+'/'+r.p.p:'— (4/5)'}</td><td>${r.base.toLocaleString()}</td><td>${M==='TW'?'x'+(r.p?bvMult(r.p.g,r.p.p):1):(r.p?'PV skill '+pvSkill(r.p.g,r.p.p):'PV 18')}</td><td>+${r.opBonus} OpFor/terrain</td><td><b>${r.fin.toLocaleString()}</b></td></tr>`}
+const pdSides=(s.sides||[]).filter(sd=>sd&&sd.brigadeId);
+const pdGroups=pdSides.length?pdSides.map(sd=>({name:((S.brigades.find(b=>b.id===sd.brigadeId)||{}).name||'— (unavailable)'),role:sd.role||'',b:S.brigades.find(b=>b.id===sd.brigadeId)})):liveBrigs().filter(b=>(b.active||[]).some(a=>a.on&&a.mech)).map(b=>({name:b.name,role:'',b}));
+let rows='',grand=0;
+pdGroups.forEach(g=>{rows+=`<tr><td colspan=8><b>${g.name}</b>${g.role?` <span class="pill">${g.role}</span>`:''}</td></tr>`;
+let sub=0,n=0;
+if(g.b)(g.b.active||[]).filter(a=>a.on).forEach(a=>{const r=pdFin(g.b,a);if(!r)return;n++;sub+=r.fin;rows+=pdRow(g.b,r)});
+if(!n)rows+=`<tr><td colspan=8 class="hint">No deployed mechs — load dropship slots on the Brigades tab and tick Deploy.</td></tr>`;
+rows+=`<tr><td colspan=7 style="text-align:right"><b>Subtotal — ${g.name}</b></td><td><b>${sub.toLocaleString()}</b></td></tr>`;grand+=sub});
+if(!pdGroups.length)rows='<tr><td colspan=8 class="hint">No participants — add brigades under Sides & Participation in Contract Review.</td></tr>';
 const assetBV=S.mode==='TW'?1200:28;
 el.innerHTML=`<h3>${s.title} — ${M==='TW'?'Total Warfare (BV)':'Alpha Strike (PV)'} <span class="hint">(game date mode)</span></h3>
 <p><b>Setup:</b> Map ${s.map.size} at ${s.map.loc} (${s.map.ter}). ${s.map.cond}. OpFor: ${s.opfor}. GM assets: Sensor post (BV ${assetBV}), convoy trucks x2 — place per objectives before first turn.</p>
-<table><tr><th>Brigade</th><th></th><th>Mech</th><th>Pilot (recorded)</th><th>Base</th><th>Skill mod</th><th>Scenario mod</th><th>Deployed (${M==='TW'?'BV':'PV'})</th></tr>${rows||'<tr><td colspan=8>No active forces. Activate brigades first.</td></tr>'}</table>
-<p><b>Force total: ${(M==='TW'?grandTW:grandAS).toLocaleString()} ${M==='TW'?'BV':'PV'}</b> (base + pilot skill + transparent OpFor/condition bump). Base skills unchanged on roster — modifiers apply to this game only.</p>
+<table><tr><th>Brigade</th><th></th><th>Mech</th><th>Pilot (recorded)</th><th>Base</th><th>Skill mod</th><th>Scenario mod</th><th>Deployed (${M==='TW'?'BV':'PV'})</th></tr>${rows}</table>
+<p><b>Force total: ${grand.toLocaleString()} ${M==='TW'?'BV':'PV'}</b> (base + pilot skill + transparent OpFor/condition bump). Base skills unchanged on roster — modifiers apply to this game only.</p>
 <h4>Payouts</h4><table><tr><th>Objective</th><th>Enabled</th><th>By</th><th>C-Bills</th></tr>${s.objectives.map(o=>`<tr><td>${o.text}</td><td>${o.enabled?'yes':'no'}</td><td>${(S.brigades.find(b=>b.id===o.by)||{}).name||'—'}</td><td>${o.payout.toLocaleString()}</td></tr>`).join('')}</table>`}
 // OUTCOMES — GM records the result of a game per scenario+brigade.
 // Commit applies: awarded payouts & scrap & minus repair to brigade funds,
