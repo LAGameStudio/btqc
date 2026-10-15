@@ -606,6 +606,33 @@ document.getElementById('seriesNew').onclick=()=>{const c=curSeries();if(c)c.sna
 const rn=document.getElementById('seriesRename');if(rn)rn.onclick=()=>{renamingSeries=true;renderSeries();const i=document.getElementById('seriesRenameInput');if(i){i.focus();i.select()}};
 const rs=document.getElementById('seriesRenameSave');if(rs)rs.onclick=()=>{const i=document.getElementById('seriesRenameInput');const v=i&&i.value.trim();if(v)curSeries().name=v;renamingSeries=false;save();renderSeries()};
 const rc=document.getElementById('seriesRenameCancel');if(rc)rc.onclick=()=>{renamingSeries=false;renderSeries()};
+document.getElementById('seriesImportBtn').onclick=async()=>{
+if(S.series.length<2)return toast('Only one series — create another first');
+const pick=await seriesImportDlg();if(!pick)return;
+const src=S.series.find(x=>x.id===pick.seriesId);
+const b0=src&&((src.id===S.activeSeriesId?S.brigades:(src.snap.brigades||[])).find(b=>b.id===pick.brigadeId));if(!b0)return toast('Brigade not found');
+const cp=JSON.parse(JSON.stringify(b0));cp.id=uid();cp.retired=false;
+let nm=cp.name,k=2;while(S.brigades.some(b=>b.name===nm))nm=`${cp.name} (${k++})`;
+cp.name=nm;blog(cp,`Imported from series '${src.name}'`);
+S.brigades.push(cp);save();renderAll();toast(`Imported '${cp.name}' from '${src.name}'`)};
+function seriesImportDlg(){return new Promise(res=>{
+const ov=document.getElementById('dlgOverlay');if(!ov)return res(null);
+const others=S.series.filter(s=>((s.id===S.activeSeriesId?S.brigades:(s.snap.brigades||[])).length));
+if(!others.length){toast('No series has brigades to import');return res(null)}
+const T=document.getElementById('dlgTitle'),M=document.getElementById('dlgMsg'),ok=document.getElementById('dlgOk'),cx=document.getElementById('dlgCancel');
+T.textContent='Import Brigade from Series';
+M.innerHTML=`<label>Series <select id="impSeries" style="width:100%">${others.map(s=>{const n=(s.id===S.activeSeriesId?S.brigades:(s.snap.brigades||[])).length;return `<option value="${s.id}" ${s.id!==S.activeSeriesId?'selected':''}>${s.name} (${n} brigade${n===1?'':'s'})</option>`}).join('')}</select></label><div style="height:8px"></div><label>Brigade <select id="impBrig" style="width:100%"></select></label>`;
+const selS=document.getElementById('impSeries'),selB=document.getElementById('impBrig');
+const fill=()=>{const s=S.series.find(x=>x.id===selS.value);const list=s?(s.id===S.activeSeriesId?S.brigades:(s.snap.brigades||[])):[];selB.innerHTML=list.map(b=>`<option value="${b.id}">${b.name} — ${(b.inventory||[]).length} mechs, ${(b.roster||[]).length} pilots</option>`).join('')||'<option value="">— no brigades —</option>'};
+selS.onchange=fill;fill();
+ok.textContent='Import';
+ov.hidden=false;ok.focus();
+const done=v=>{ov.hidden=true;ok.onclick=null;cx.onclick=null;ov.onclick=null;document.removeEventListener('keydown',esc);ok.textContent='Confirm';T.textContent='Confirm';M.textContent='';res(v)};
+const esc=e=>{if(e.key==='Escape')done(null)};
+ok.onclick=()=>done(selB.value?{seriesId:selS.value,brigadeId:selB.value}:null);
+cx.onclick=()=>done(null);
+ov.onclick=e=>{if(e.target===ov)done(null)};
+document.addEventListener('keydown',esc)})}
 document.getElementById('seriesDel').onclick=async()=>{if(S.series.length<2)return toast('Cannot delete the last series');const c=curSeries();if(!await confirmDlg(`Delete series '${c.name}' and ALL its dates, brigades, scenarios and outcomes?`,'Delete'))return;S.series=S.series.filter(x=>x.id!==c.id);const t=S.series[0];applySnap(JSON.parse(JSON.stringify(t.snap)));S.activeSeriesId=t.id;OD=null;editingOutcomeId=null;calView={y:null,m:null};save();renderAll();toast(`Deleted series '${c.name}'`)};
 document.getElementById('enemyAdd').onclick=()=>{const i=document.getElementById('enemyName');const v=(i.value||'').trim();if(!v)return toast('Name the enemy first');const c=curSeries();c.enemies=c.enemies||[];if(!c.enemies.includes(v))c.enemies.push(v);save();renderSeries();toast(`'${v}' will haunt new contracts`)};
 box.querySelectorAll('[data-enemydel]').forEach(x=>x.onclick=()=>{curSeries().enemies.splice(+x.dataset.enemydel,1);save();renderSeries()})}
