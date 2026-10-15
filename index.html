@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BT Quick Contract Scenario Tool</title>
-<link rel="stylesheet" href="styles.css?v=13">
+<link rel="stylesheet" href="styles.css?v=14">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -35,7 +35,7 @@
     <div class="card"><h2>Game Dates</h2>
       <div class="row"><input type="date" id="newDate"><input type="text" id="newDateNote" placeholder="Note e.g. Shop Night — March"><button class="btn" id="addDateBtn">+ Add Date</button></div>
       <div class="row btabbar" id="dateTabs"></div>
-      <div id="dateList" class="stack"></div>
+      <div data-bpane><div id="dateList" class="stack"></div></div>
     </div>
     <div class="card"><h2>Calendar</h2><div id="calendar" class="calendar"></div>
       <p class="hint">Past dates auto-lock (read-only). GM can unlock / relock at will. All state autosaves to this browser (localStorage).</p>
