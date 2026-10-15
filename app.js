@@ -299,7 +299,10 @@ function commitDateDlg(cands){return new Promise(res=>{
 const ov=document.getElementById('dlgOverlay');if(!ov)return res(null);
 const T=document.getElementById('dlgTitle'),M=document.getElementById('dlgMsg'),ok=document.getElementById('dlgOk'),cx=document.getElementById('dlgCancel');
 T.textContent='Assign to game date';
-M.innerHTML=`<p class="hint">More than one upcoming game date is open — pick the date this contract is assigned to (only dates without a committed contract are listed):</p><label>Game date <select id="commitDate" style="width:100%">${cands.map(g=>{const nt=String(g.note||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');return `<option value="${g.id}">${g.date}${nt?' — '+nt:''} [${g.mode||S.mode||'TW'}]</option>`}).join('')}</select></label>`;
+const ordered=[...cands].sort((a,b)=>a.date.localeCompare(b.date));
+const upId=upcomingGameId();
+const defId=ordered.some(g=>g.id===upId)?upId:(ordered[0]||{}).id;
+M.innerHTML=`<p class="hint">More than one upcoming game date is open — pick the date this contract is assigned to (only dates without a committed contract are listed):</p><label>Game date <select id="commitDate" size="5" style="width:100%">${ordered.map(g=>{const nt=String(g.note||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');return `<option value="${g.id}"${g.id===defId?' selected':''}>${g.date}${nt?' — '+nt:''} [${g.mode||S.mode||'TW'}]${g.id===upId?' ★':''}</option>`}).join('')}</select></label>`;
 ok.textContent='Commit';
 ov.hidden=false;ok.focus();
 const done=v=>{ov.hidden=true;ok.onclick=null;cx.onclick=null;ov.onclick=null;document.removeEventListener('keydown',esc);ok.textContent='Confirm';T.textContent='Confirm';M.textContent='';res(v)};
