@@ -319,7 +319,9 @@ if(cands.length===1)gid=cands[0].id;
 else if(cands.length>1){const pick=await commitDateDlg(cands);if(!pick)return;gid=pick}
 t.gameDateId=gid;
 S.scenarios.forEach(x=>{if(x.id!==t.id&&x.gameDateId===gid&&x.status==='active')x.status='available'});
-t.status='active';S.activePredrop=t.id;save();renderAll();const _pd=document.querySelector('.tab[data-tab="predrop"]');if(_pd)_pd.click();
+t.status='active';S.activePredrop=t.id;
+const _gd0=S.dates.find(g=>g.id===gid);if(_gd0&&(_gd0.mode==='TW'||_gd0.mode==='AS')&&_gd0.mode!==S.mode)setMode(_gd0.mode);
+save();renderAll();const _pd=document.querySelector('.tab[data-tab="predrop"]');if(_pd)_pd.click();
 const gd=S.dates.find(g=>g.id===gid);toast(`Committed and signed: '${t.title}'${gd?` for ${gd.date}`:''}`)}
 function undoCommit(id){const t=S.scenarios.find(y=>y.id===id);if(!t||t.status!=='active')return;
 const g=S.dates.find(x=>x.id===t.gameDateId);
