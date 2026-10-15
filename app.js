@@ -253,9 +253,10 @@ const nSides=sides.length;
 const objs=nSides?sides.flatMap(sd=>genSideObjectives(m,sd,parts.find(x=>x.id===sd.brigadeId),nSides)):(m.obj||[]).map((o,i)=>({id:uid(),text:o,payout:Math.round((m.pay||0)/Math.max(1,(m.obj||[]).length)),enabled:true,required:i===0,auto:false,by:'',sideId:null}));
 const foes=((curSeries()||{}).enemies||[]);const foe=foes.length?foes[Math.floor(Math.random()*foes.length)]:'';
 return {gameDateId:gid,title:`${m.t} — Op ${opNo}`,type:m.t,backstory:buildBackstory(m,sides,foe),sides,enemy:foe,objectives:objs,map:m.map,opfor,salvage:{}}}
-document.getElementById('genBtn').onclick=()=>{
+document.getElementById('genBtn').onclick=async e=>{
 const gid=document.getElementById('genDate').value;if(!gid)return toast('Create a game date first');
 const n=+document.getElementById('genCount').value||10;
+if(!await confirmDlg(`Generate ${n} scenario${n===1?'':'s'}? New contracts will be added to the available list.`,'Generate',e))return;
 const pool=[...MISSIONS].sort(()=>Math.random()-.5).slice(0,Math.min(n,MISSIONS.length));
 while(pool.length<n)pool.push(MISSIONS[Math.floor(Math.random()*MISSIONS.length)]);
 pool.forEach((m)=>{S.scenarios.push(Object.assign({id:uid(),status:'available'},buildScenarioFields(gid,String(S.scenarios.length+1).padStart(2,'0'),m)))});
