@@ -413,7 +413,7 @@ el.innerHTML=`<h3>${s.title} — ${M==='TW'?'Total Warfare (BV)':'Alpha Strike (
 // Commit applies: awarded payouts & scrap & minus repair to brigade funds,
 // mech salvage into the assigned brigade's inventory, pilot deaths (removed
 // from roster) and gunnery ticks. Edit/Delete reverses the old application.
-function ocNew(){const up=upcomingGameId();const ups=upcomingPredrop();return {id:uid(),gameDateId:up||(S.dates[0]||{}).id||'',scenarioId:ups?ups.id:'',brigadeId:(liveBrigs()[0]||{}).id||'',failed:false,repair:0,note:'',rows:[],pay:[],payScen:'',salvage:[],revise:false}}
+function ocNew(){const up=upcomingGameId();const ups=upcomingPredrop();return {id:uid(),gameDateId:up||(S.dates[0]||{}).id||'',scenarioId:ups?ups.id:'',brigadeId:(liveBrigs()[0]||{}).id||'',failed:false,note:'',rows:[],pay:[],payScen:'',salvage:[],revise:false}}
 function scopedPay(sc,bid){return (sc?sc.objectives:[]).filter(o=>o.by===bid).map(o=>({oid:o.id,text:o.text,amount:o.payout,awarded:o.enabled}))}
 function pullRows(bid,silent){if(!OD)return 0;const b=S.brigades.find(x=>x.id===bid);if(!b){OD.rows=[];return 0}
 OD.rows=(b.active||[]).filter(a=>a.on&&a.mech).map(a=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);return {rid:uid(),pilotId:p?p.id:'',name:p?p.n:'— (no pilot)',g:p?p.g:4,p:p?p.p:5,mechId:m?m.id:'',mechName:m?m.n:'—',dmg:m?Math.max(0,Math.min(100,+m.dmg||0)):0,dead:false,hits:0,ejected:false,ticks:0}});
@@ -422,7 +422,7 @@ if(!silent)toast(OD.rows.length?`Loaded ${OD.rows.length} pilot/mech rows for '$
 function syncOutcomeDraft(){if(!OD||OD.revise||editingOutcomeId)return;const up=upcomingGameId();const s=upcomingPredrop();const sid=s?s.id:'';
 if(OD.scenarioId!==sid||OD.gameDateId!==(up||'')){OD.gameDateId=up||'';OD.scenarioId=sid;OD.pay=[];OD.payScen='';OD.rows=[];OD.salvage=[];if(s&&OD.brigadeId)pullRows(OD.brigadeId,true)}}
 function ocSync(){if(!OD)return;const g=id=>document.getElementById(id);if(!g('ocBrig'))return;
-OD.brigadeId=g('ocBrig').value;OD.failed=g('ocFailed').checked;OD.repair=+g('ocRepair').value||0;OD.note=g('ocNote').value;
+OD.brigadeId=g('ocBrig').value;OD.failed=g('ocFailed').checked;OD.note=g('ocNote').value;
 OD.rows.forEach(r=>{const d=document.querySelector(`[data-rdead="${r.rid}"]`);if(!d)return;const j=document.querySelector(`[data-reject="${r.rid}"]`);r.dead=d.tagName==='INPUT'?d.checked:d.dataset.on==='1';r.hits=+document.querySelector(`[data-rhits="${r.rid}"]`).value||0;if(j)r.ejected=j.tagName==='INPUT'?j.checked:j.dataset.on==='1';r.ticks=+document.querySelector(`[data-rticks="${r.rid}"]`).value||0;const dg=document.querySelector(`[data-dmg="${r.rid}"]`);if(dg)r.dmg=+dg.value||0});
 OD.pay.forEach(w=>{const a=document.querySelector(`[data-pamt="${w.oid}"]`),c=document.querySelector(`[data-paw="${w.oid}"]`);if(a)w.amount=+a.value||0;if(c)w.awarded=c.checked});
 OD.salvage.forEach(sv=>{const n=document.querySelector(`[data-sname="${sv.id}"]`),c=document.querySelector(`[data-scb="${sv.id}"]`),t=document.querySelector(`[data-sto="${sv.id}"]`);if(n)sv.name=n.value;if(c)sv.cb=+c.value||0;if(t)sv.to=t.value});
@@ -438,7 +438,6 @@ if(!bg.memorial.some(m=>m.name===r.name&&m.scen===oc.scenarioId))bg.memorial.pus
 if(dir<0&&r.dead&&!bg.roster.some(x=>x.n===r.name)){p={id:uid(),n:r.name,g:r.g,p:r.p};bg.roster.push(p);bg.memorial=(bg.memorial||[]).filter(m=>!(m.name===r.name&&m.scen===oc.scenarioId))}
 if(p&&!r.dead)p.ticks=Math.max(0,(+p.ticks||0)+dir*(+r.ticks||0))});
 if(!oc.failed&&bg)addFunds(bg.id,oc.pay.filter(w=>w.awarded).reduce((s,w)=>s+(+w.amount||0),0));
-if(bg)addFunds(bg.id,-(+oc.repair||0));
 const ocSc0=S.scenarios.find(x=>x.id===oc.scenarioId);
 oc.salvage.forEach(sv=>{let to=sv.to||null;if(!to&&!sv.poolId)to=oc.brigadeId;
 if(sv.kind==='scrap'){addFunds(to,+sv.cb||0);return}
@@ -463,11 +462,11 @@ const sc=S.scenarios.find(x=>x.id===OD.scenarioId);if(!sc)return toast('Pick a s
 const bg=S.brigades.find(x=>x.id===OD.brigadeId);if(!bg)return toast('Pick a brigade');
 const wasEdit=!!editingOutcomeId;
 if(editingOutcomeId){const old=S.outcomes.find(x=>x.id===editingOutcomeId);if(old){applyOutcome(old,-1);clog(S.scenarios.find(x=>x.id===old.scenarioId),`Outcome for '${old.brigadeName}' updated — old application reversed`)}S.outcomes=S.outcomes.filter(x=>x.id!==editingOutcomeId)}
-const oc={id:OD.id,gameDateId:OD.gameDateId,dateStr:(S.dates.find(g=>g.id===OD.gameDateId)||{}).date||'',scenarioId:sc.id,scenarioTitle:sc.title,brigadeId:bg.id,brigadeName:bg.name,failed:OD.failed,repair:+OD.repair||0,note:OD.note,rows:JSON.parse(JSON.stringify(OD.rows)),pay:JSON.parse(JSON.stringify(OD.pay)),salvage:JSON.parse(JSON.stringify(OD.salvage)).map(sv=>({...sv,rec:sv.kind==='mech'&&!!sv.poolId&&(sv.to||OD.brigadeId)===(sv.from||OD.brigadeId)}))};
+const oc={id:OD.id,gameDateId:OD.gameDateId,dateStr:(S.dates.find(g=>g.id===OD.gameDateId)||{}).date||'',scenarioId:sc.id,scenarioTitle:sc.title,brigadeId:bg.id,brigadeName:bg.name,failed:OD.failed,note:OD.note,rows:JSON.parse(JSON.stringify(OD.rows)),pay:JSON.parse(JSON.stringify(OD.pay)),salvage:JSON.parse(JSON.stringify(OD.salvage)).map(sv=>({...sv,rec:sv.kind==='mech'&&!!sv.poolId&&(sv.to||OD.brigadeId)===(sv.from||OD.brigadeId)}))};
 applyOutcome(oc,+1);S.outcomes.push(oc);
 const dead=oc.rows.filter(r=>r.dead).length;const ticked=oc.rows.filter(r=>!r.dead&&(+r.ticks||0)>0).length;
 const payT=oc.failed?0:oc.pay.filter(w=>w.awarded).reduce((s,w)=>s+(+w.amount||0),0);
-blog(bg,`Outcome ${wasEdit?'updated':'committed'}: '${oc.scenarioTitle}' — payouts +${payT.toLocaleString()} C, repair −${(+oc.repair||0).toLocaleString()} C${dead?`, ${dead} KIA`:''}${ticked?`, ticks for ${ticked} pilot(s)`:''}${oc.salvage.length?`, ${oc.salvage.length} salvage`:''}`);
+blog(bg,`Outcome ${wasEdit?'updated':'committed'}: '${oc.scenarioTitle}' — payouts +${payT.toLocaleString()} C${dead?`, ${dead} KIA`:''}${ticked?`, ticks for ${ticked} pilot(s)`:''}${oc.salvage.length?`, ${oc.salvage.length} salvage`:''}`);
 clog(sc,`Outcome ${wasEdit?'updated':'committed'} for '${bg.name}' (+${payT.toLocaleString()} C${dead?`, ${dead} KIA`:''})`);
 OD=ocNew();editingOutcomeId=null;save();renderAll();
 toast(`Outcome committed to '${bg.name}'${dead?` — ${dead} pilot(s) KIA`:''} — see brigade accounting`)}
@@ -489,7 +488,6 @@ ${editingOutcomeId?'<p class="hint">Editing a committed outcome — scenario and
 <div class="row wrap"><label>Brigade <select id="ocBrig" ${editingOutcomeId?'disabled title="Locked while editing a committed outcome"':''}>${brigOpts}</select></label>
 <button class="btn small" data-ocnew>New</button></div>
 <div class="row wrap"><label class="check"><input type="checkbox" id="ocFailed" ${OD.failed?'checked':''}> Contract FAILED (no payouts)</label>
-<label>Repair/Refit C <input type="number" id="ocRepair" value="${OD.repair}" style="width:130px"></label>
 <input id="ocNote" placeholder="GM note e.g. glorious victory" value="${(OD.note||'').replace(/"/g,'&quot;')}" style="flex:1;min-width:160px"></div>
 <h4>MechWarriors & Mechs</h4><table><tr><th>Pilot</th><th>Mech</th><th>Dead</th><th>Hits</th><th>Ejected</th><th>Gun ticks</th><th></th></tr>
 ${OD.rows.map(r=>`<tr><td>${r.name} <span class="hint">${r.g}/${r.p}</span></td><td>${r.mechName}</td><td><button class="btn small" data-rdead="${r.rid}" data-on="${r.dead?'1':''}" title="${r.dead?'KIA — click to undo':'Alive — click to mark KIA'}">${r.dead?'💀':'✅'}</button></td><td><input type="number" min="0" max="20" value="${r.hits}" style="width:60px" data-rhits="${r.rid}"></td><td><button class="btn small" data-reject="${r.rid}" data-on="${r.ejected?'1':''}" title="${r.ejected?'Ejected — click to undo':'Not ejected — click to mark ejected'}">${r.ejected?'🪂':'❓'}</button></td><td><input type="number" min="0" max="20" value="${r.ticks}" style="width:60px" data-rticks="${r.rid}"></td><td><button class="btn small" data-rdel="${r.rid}">x</button></td></tr>`).join('')||'<tr><td colspan=7 class="hint">No rows — the brigade load pulls in automatically when selected; empty means no deployed dropship load.</td></tr>'}</table>
@@ -528,7 +526,7 @@ el.querySelectorAll('[data-epdel]').forEach(b=>b.onclick=async ev=>{ocSync();con
 list.innerHTML=S.outcomes.length?S.outcomes.map(o=>{const pay=o.failed?0:o.pay.filter(w=>w.awarded).reduce((s,w)=>s+(+w.amount||0),0);
 const dead=o.rows.filter(r=>r.dead).map(r=>r.name).join(', ');
 return `<div class="date-row"><b>${o.scenarioTitle||'?'}</b> <span class="hint">${o.dateStr||''} → ${o.brigadeName||''}</span> ${o.failed?'<span class="pill cancel">FAILED</span>':'<span class="pill contemp">COMPLETE</span>'}
-<div class="hint">Payouts +${pay.toLocaleString()} C · Repair/Refit −${(+o.repair||0).toLocaleString()} C · Salvage: ${(o.salvage||[]).map(sv=>{const bn=sv.to?((S.brigades.find(b=>b.id===sv.to)||{name:'?'}).name):'unallocated';return `${sv.name} (${(+sv.cb||0).toLocaleString()} C → ${bn})${sv.rec?' · Recovered':''}`}).join(', ')||'none'}${dead?` · ☠ ${dead}`:''}</div>
+<div class="hint">Payouts +${pay.toLocaleString()} C · Salvage: ${(o.salvage||[]).map(sv=>{const bn=sv.to?((S.brigades.find(b=>b.id===sv.to)||{name:'?'}).name):'unallocated';return `${sv.name} (${(+sv.cb||0).toLocaleString()} C → ${bn})${sv.rec?' · Recovered':''}`}).join(', ')||'none'}${dead?` · ☠ ${dead}`:''}</div>
 <div class="row"><button class="btn small" data-ocedit="${o.id}">Edit</button><button class="btn small" data-ocdel="${o.id}">Delete</button></div></div>`}).join(''):'<p class="hint">No committed outcomes yet.</p>';
 list.querySelectorAll('[data-ocedit]').forEach(b=>b.onclick=()=>{const o=S.outcomes.find(x=>x.id===b.dataset.ocedit);if(!o)return;OD=JSON.parse(JSON.stringify(o));OD.payScen=OD.scenarioId;OD.revise=false;editingOutcomeId=o.id;save();renderOutcomes();toast(`Editing outcome for '${o.scenarioTitle}' — Commit saves, reversing the old application first`)});
 list.querySelectorAll('[data-ocdel]').forEach(b=>b.onclick=async()=>{const o=S.outcomes.find(x=>x.id===b.dataset.ocdel);if(!o)return;if(!await confirmDlg(`Delete the committed outcome '${o.scenarioTitle}' for '${o.brigadeName}'? Funds, salvage and pilot changes will be reversed.`,'Delete'))return;applyOutcome(o,-1);clog(S.scenarios.find(x=>x.id===o.scenarioId),`Outcome for '${o.brigadeName}' deleted — application reversed`);S.outcomes=S.outcomes.filter(x=>x.id!==o.id);if(editingOutcomeId===o.id){editingOutcomeId=null;OD=ocNew()}save();renderAll();toast('Outcome deleted and reversed')})}
@@ -549,12 +547,11 @@ if(!ocs.length)return '';
 return `<h4>Outcome Accounting (${ocs.length})</h4>`+ocs.map(o=>{
 const own=o.brigadeId===b.id;
 const pay=own&&!o.failed?o.pay.filter(w=>w.awarded).reduce((s,w)=>s+(+w.amount||0),0):0;
-const rep=own?(+o.repair||0):0;
 const sv=o.salvage.filter(sv=>(sv.to||o.brigadeId)===b.id);
 const net=(o.applied&&o.applied.funds&&o.applied.funds[b.id])||0;
 const fates=own?o.rows.filter(r=>r.dead||(+r.hits)>0||r.ejected||(+r.ticks)>0).map(r=>`${r.name} (${r.mechName}): ${[r.dead?'☠ KIA':'',(+r.hits)?r.hits+' hits':'',r.ejected?'ejected':'',(+r.ticks)?'+'+r.ticks+' gun ticks':''].filter(Boolean).join(', ')}`).join(' | '):'';
 return `<div class="date-row"><b>${o.scenarioTitle||'?'}</b> <span class="hint">${o.dateStr||''}</span> ${o.failed?'<span class="pill cancel">FAILED</span>':'<span class="pill contemp">COMPLETE</span>'}
-<div class="hint">Payouts +${pay.toLocaleString()} C · Repair/Refit −${rep.toLocaleString()} C${sv.length?' · Salvage: '+sv.map(sv=>`${sv.name} (${(+sv.cb||0).toLocaleString()} C)`).join(', '):''} · <b>Net to funds ${net>=0?'+':''}${net.toLocaleString()} C</b></div>
+<div class="hint">Payouts +${pay.toLocaleString()} C${sv.length?' · Salvage: '+sv.map(sv=>`${sv.name} (${(+sv.cb||0).toLocaleString()} C)`).join(', '):''} · <b>Net to funds ${net>=0?'+':''}${net.toLocaleString()} C</b></div>
 ${fates?`<div class="hint">Pilots — ${fates}</div>`:''}${o.note?`<div class="hint">“${o.note}”</div>`:''}</div>`}).join('')}
 // EXPORT ODS (LibreOffice / Google Sheets friendly)
 function odsTable(name,rows){return '<table:table table:name="'+name+'">'+rows.map(odsRow).join('')+'</table:table>'}
