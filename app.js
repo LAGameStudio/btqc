@@ -692,7 +692,9 @@ if(cat)mechs.push({id:uid(),n:cat.n,bv:bv!=null?Math.round(bv):cat.bv,pv:pvv!=nu
 else if(bv!=null||pvv!=null)mechs.push({id:uid(),n:nm+' '+va,bv:bv!=null?Math.round(bv):800,pv:pvv!=null?Math.round(pvv):20,cb:cb!=null?Math.round(cb):3000000,tons:null,yr:null,wc:'Medium',rl:'None',ico:icoFor('','Medium')});
 else skipped++}}}
 if(!bname&&!roster.length&&!mechs.length){toast('No brigade data recognised — skipped file');return}
-const b={id:uid(),name:bname||f.name.replace(/\.ods$/i,'')||'Imported Brigade',employer:employer||'Independent',ledger:[{id:uid(),label:'Initial Investment',amount:Math.round(cbills),ignored:false,outcomeId:null,date:todayStr()}],log:newLog(),retired:false,inventory:mechs,roster,active:[],dropship:true,memorial:[]};
+const iledger=[{id:uid(),label:'Initial Investment',amount:Math.round(cbills),ignored:false,outcomeId:null,date:todayStr()}];
+mechs.forEach(m=>iledger.push({id:uid(),label:'Mech Purchased: '+m.n,amount:-Math.round(+m.cb||0),ignored:false,outcomeId:null,date:todayStr()}));
+const b={id:uid(),name:bname||f.name.replace(/\.ods$/i,'')||'Imported Brigade',employer:employer||'Independent',ledger:iledger,log:newLog(),retired:false,inventory:mechs,roster,active:[],dropship:true,memorial:[]};
 S.brigades.push(b);save();renderAll();
 toast(`Imported '${b.name}': ${mechs.length} mechs, ${roster.length} pilots${skipped?`, skipped ${skipped} rows`:''}`);
 }catch(err){console.warn(err);toast('Could not read ODS: '+(err&&err.message||err))}})()};
