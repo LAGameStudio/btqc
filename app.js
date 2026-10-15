@@ -109,8 +109,13 @@ function eraTag(yr){const b=eraBounds();if(yr==null||isNaN(+yr)||!b)return '<spa
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('tab-'+b.dataset.tab).classList.add('active')});
 // ERA + MODE
 const eraSel=document.getElementById('eraSelect');ERAS.forEach(e=>{const o=document.createElement('option');o.textContent=e;eraSel.appendChild(o)});eraSel.value=S.era;eraSel.onchange=()=>{S.era=eraSel.value;save();renderAll()};
-function setMode(m){S.mode=m;save();document.getElementById('modeTW').classList.toggle('active',m==='TW');document.getElementById('modeAS').classList.toggle('active',m==='AS');renderAll()}
-document.getElementById('modeTW').onclick=()=>setMode('TW');document.getElementById('modeAS').onclick=()=>setMode('AS');setMode(S.mode||'TW');
+function setMode(m,quiet){S.mode=m;save();document.getElementById('modeTW').classList.toggle('active',m==='TW');document.getElementById('modeAS').classList.toggle('active',m==='AS');
+if(!quiet){const s=S.scenarios.find(x=>x.id===S.activePredrop)||S.scenarios.find(x=>x.status==='active');const g=s&&S.dates.find(x=>x.id===s.gameDateId);
+if(g&&s){const want=m==='TW'?'Total Warfare':'Alpha Strike';
+if(g.locked){if((g.mode||m)!==m)toast(`${g.date} is locked — kept ${(g.mode||'TW')==='TW'?'Total Warfare':'Alpha Strike'}`)}
+else if(g.mode!==m){g.mode=m;save();toast(`${g.date} now ${want} — Pre-Drop recomputed`)}}}
+renderAll()}
+document.getElementById('modeTW').onclick=()=>setMode('TW');document.getElementById('modeAS').onclick=()=>setMode('AS');setMode(S.mode||'TW',true);
 // SCHEDULE
 document.getElementById('addDateBtn').onclick=()=>{const d=document.getElementById('newDate').value;if(!d)return toast('Pick a date');S.dates.push({id:uid(),date:d,note:document.getElementById('newDateNote').value,status:'open',locked:false,mode:S.mode||'TW'});save();renderAll();toast('Game date added')};
 function todayStr(){return new Date().toISOString().slice(0,10)}
@@ -150,7 +155,7 @@ if(g.date<today)mk(g.locked?'🔒':'🔓',()=>{g.locked=!g.locked;save();renderA
 mk('Edit note',()=>{if(row.querySelector('[data-noteedit]'))return;const inp=document.createElement('input');inp.value=g.note||'';inp.placeholder='Game date note';inp.setAttribute('data-noteedit','1');inp.style.minWidth='160px';const set=document.createElement('button');set.className='btn small';set.textContent='Save note';set.onclick=()=>{g.note=inp.value;save();renderAll();toast('Game date note updated')};row.appendChild(inp);row.appendChild(set);inp.focus()});
 const act=S.scenarios.find(s=>s.gameDateId===g.id&&s.status==='active');
 const ind=document.createElement('div');ind.className='hint';ind.style.marginTop='4px';ind.textContent=act?`✓ Committed & signed: ${act.title}`:'No committed contract';d.appendChild(ind);
-const gm=document.createElement('button');gm.className='btn small';gm.textContent='Mode: '+(g.mode||S.mode||'TW');gm.title='Flip this game date between Total Warfare (BV) and Alpha Strike (PV)';gm.onclick=()=>{g.mode=(g.mode||S.mode||'TW')==='TW'?'AS':'TW';if(g.id===upcomingGameId()){setMode(g.mode);toast(`Upcoming date mode: ${g.mode==='TW'?'Total Warfare':'Alpha Strike'} — top bar follows`)}else{save();renderAll();toast(`Game date mode: ${g.mode==='TW'?'Total Warfare':'Alpha Strike'} (top bar unchanged)`)} };if(!g.locked)row.appendChild(gm);
+const gm=document.createElement('button');gm.className='btn small';gm.textContent='Mode: '+(g.mode||S.mode||'TW');gm.title='Flip this game date between Total Warfare (BV) and Alpha Strike (PV)';gm.onclick=()=>{g.mode=(g.mode||S.mode||'TW')==='TW'?'AS':'TW';if(g.id===upcomingGameId()){setMode(g.mode,true);toast(`Upcoming date mode: ${g.mode==='TW'?'Total Warfare':'Alpha Strike'} — top bar follows`)}else{save();renderAll();toast(`Game date mode: ${g.mode==='TW'?'Total Warfare':'Alpha Strike'} (top bar unchanged)`)} };if(!g.locked)row.appendChild(gm);
 mk('Delete',async()=>{if(await confirmDlg('Delete date?','Delete')){S.dates=S.dates.filter(x=>x.id!==g.id);save();renderAll()}});
 return d}
 function renderDates(){const el=document.getElementById('dateList');el.innerHTML='';const today=todayStr();
