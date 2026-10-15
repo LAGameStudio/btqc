@@ -114,6 +114,8 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelect
 // MODE (era lives on the Game Series card)
 function setMode(m){S.mode=m;save();document.getElementById('modeTW').classList.toggle('active',m==='TW');document.getElementById('modeAS').classList.toggle('active',m==='AS');renderAll()}
 document.getElementById('modeTW').onclick=()=>setMode('TW');document.getElementById('modeAS').onclick=()=>setMode('AS');setMode(S.mode||'TW');
+/* Header uplink revision always matches this script's working revision (?v=N) */
+try{const _av=(document.querySelector('script[src*="app.js"]')||{src:''}).src.match(/[?&]v=(\d+)/);const _bp=document.querySelector('.brand p');if(_av&&_bp)_bp.textContent='Scenario Tool // MercroSoft Uplink v3.067.'+_av[1]}catch(_e){}
 // SCHEDULE
 document.getElementById('addDateBtn').onclick=()=>{const d=document.getElementById('newDate').value;if(!d)return toast('Pick a date');S.dates.push({id:uid(),date:d,note:document.getElementById('newDateNote').value,status:'open',locked:false,mode:S.mode||'TW'});save();renderAll();toast('Game date added')};
 function todayStr(){return new Date().toISOString().slice(0,10)}
