@@ -104,7 +104,7 @@ ov.onclick=e=>{if(e.target===ov)done(false)};document.addEventListener('keydown'
 document.getElementById('dlgOk').focus()})}
 function pilotSalary(p){return Math.round(1500*bvMult(p.g,p.p))}
 function upkeepParts(b){const dep=Math.ceil(((b.inventory||[]).length)/4)*10000;const sal=(b.roster||[]).reduce((s,p)=>s+pilotSalary(p),0);return {dep,sal,ship:20000}}
-function dmgExtra(b,m){if(!(+m.dmg||0))return '';return ` <span class=\"hint\" data-mdmgcb=\"${b.id}:${m.id}\">(~${Math.round((+m.cb||0)*Math.max(0,Math.min(100,+m.dmg||0))/100).toLocaleString()} C)</span> <button class="btn small" data-repair="${b.id}:${m.id}" ${(+m.dmg||0)>0?'':'disabled'} title="${(+m.dmg||0)>0?'Repair '+Math.round(+m.dmg||0)+'% damage (~'+Math.round((+m.cb||0)*(+m.dmg||0)/100).toLocaleString()+' C-Bills)':'Undamaged — nothing to repair'}">🔧</button>`}
+function dmgExtra(b,m){if(!(+m.dmg||0))return '';return ` <button class="btn small" data-repair="${b.id}:${m.id}" ${(+m.dmg||0)>0?'':'disabled'} title="${(+m.dmg||0)>0?'Repair '+Math.round(+m.dmg||0)+'% damage (~'+Math.round((+m.cb||0)*(+m.dmg||0)/100).toLocaleString()+' C-Bills)':'Undamaged — nothing to repair'}">🔧</button><br><span class=\"hint\" data-mdmgcb=\"${b.id}:${m.id}\">(~${Math.round((+m.cb||0)*Math.max(0,Math.min(100,+m.dmg||0))/100).toLocaleString()} C)</span>`}
 function upkeep(b){const u=upkeepParts(b);return u.dep+u.sal+u.ship}
 function val(m){return S.mode==='TW'?m.bv+' BV':m.pv+' PV'}
 function eraBounds(){const m=String(S.era||'').match(/(\d{3,4})\s*(?:[-\u2013]\s*(\d{3,4})|\+)/);if(!m)return null;return [+m[1],m[2]?+m[2]:9999]}
