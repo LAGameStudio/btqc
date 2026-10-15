@@ -50,6 +50,11 @@ if(!Array.isArray(b.ledger))b.ledger=[{id:uid(),label:'Initial Investment',amoun
 if(!Array.isArray(b.log))b.log=[];
 if(b.retired!==true)b.retired=false;
 delete b.cbills});
+function snapOf(S){return JSON.parse(JSON.stringify({dates:S.dates,brigades:S.brigades,scenarios:S.scenarios,outcomes:S.outcomes,selScenario:S.selScenario,activePredrop:S.activePredrop}))}
+function applySnap(s){S.dates=s.dates||[];S.brigades=s.brigades||[];S.scenarios=s.scenarios||[];S.outcomes=s.outcomes||[];S.selScenario=s.selScenario||null;S.activePredrop=s.activePredrop||null}
+function curSeries(){if(!Array.isArray(S.series)||!S.series.length)return null;return S.series.find(x=>x.id===S.activeSeriesId)||S.series[0]}
+function switchSeries(id){if(id===S.activeSeriesId)return;const cur=curSeries();if(cur)cur.snap=snapOf(S);const t=S.series.find(x=>x.id===id);if(!t||!t.snap)return;applySnap(JSON.parse(JSON.stringify(t.snap)));S.activeSeriesId=id;OD=null;editingOutcomeId=null;calView={y:null,m:null};save();renderAll();toast(`Switched to series '${t.name}' — full dataset swapped`)}
+if(!Array.isArray(S.series)||!S.series.length){S.series=[{id:uid(),name:'Main Campaign',enemies:[],snap:snapOf(S)}];S.activeSeriesId=S.series[0].id}
 function liveBrigs(){return S.brigades.filter(b=>!b.retired)}
 // Tallied ledger balance (ignored lines excluded) — the brigade's C-Bills account.
 function ledgerTotal(b){return (b.ledger||[]).filter(l=>!l.ignored).reduce((s,l)=>s+(+l.amount||0),0)}
@@ -74,6 +79,7 @@ document.getElementById('scenPaneSelect').style.display=scenTab==='select'?'':'n
 document.getElementById('scenPaneReview').style.display=scenTab==='review'?'':'none'}
 // Original-Investment locks: read-only until unlocked; relock after 10 s idle
 const brigEdit=new Set(); // brigade ids with name/employer in edit mode
+let renamingSeries=false; // series rename edit mode (top-level: renderAll runs during init)
 const brigTab={}; // brigade id -> active card tab (roster|mechs|dropship|outcomes|ledger|memorial|log)
 const catOpen=new Set(); // brigade ids with the Mech Catalog unfolded (closed by default)
 const ledEdit=new Set(),ledTimers={},ledOld={},ledOldD={}; // ledger line ids unlocked for editing; relock after 10 s idle
@@ -208,15 +214,16 @@ function randMission(avoidType){const pool=MISSIONS.filter(m=>m.t!==avoidType);r
 const ROLE_FALLBACK={'Attacker':'{B}: seize the primary objective before the rivals','Defender':'{B}: deny the rivals their objective at all costs','Raider':'{B}: exploit the chaos — grab what you can and withdraw'};
 function roleObjectiveText(m,role,bname){const v=(m&&m.v)||[];const t=role==='Attacker'?(v[0]||ROLE_FALLBACK.Attacker):role==='Defender'?(v[1]||ROLE_FALLBACK.Defender):(v[2]||ROLE_FALLBACK.Raider);return t.replace(/\{B\}/g,bname||'')}
 function genSideObjectives(m,side,bg,nSides){const n=Math.max(1,nSides),bid=bg?bg.id:'',out=[{id:uid(),text:roleObjectiveText(m,side.role,bg&&bg.name),payout:Math.round((m.pay||0)/n),enabled:true,required:true,auto:true,by:bid,sideId:side.id}];(m.obj||[]).forEach(o=>out.push({id:uid(),text:o,payout:Math.round((m.pay||0)/n/Math.max(1,(m.obj||[]).length)),enabled:true,required:false,auto:false,by:bid,sideId:side.id}));return out}
-function buildBackstory(m,sides){const desc=(m&&m.d)||'';const order=[...SIDE_ROLES];const groups={};(sides||[]).forEach(sd=>{const b=S.brigades.find(x=>x.id===sd.brigadeId);if(!b)return;(groups[sd.role]=groups[sd.role]||[]).push(b.name)});const parts=Object.keys(groups).sort((a,b)=>((order.indexOf(a)+1)||99)-((order.indexOf(b)+1)||99)).map(r=>`${r.toUpperCase()}: ${groups[r].join(', ')}`);return parts.length?`${desc} ${parts.join(' vs ')}.`:`${desc}`}
-function refreshBackstory(s){const m=MISSIONS.find(x=>x.t===s.type);if(!m)return;s.backstory=buildBackstory(m,s.sides||[])}
+function buildBackstory(m,sides,enemy){const desc=(m&&m.d)||'';const order=[...SIDE_ROLES];const groups={};(sides||[]).forEach(sd=>{const b=S.brigades.find(x=>x.id===sd.brigadeId);if(!b)return;(groups[sd.role]=groups[sd.role]||[]).push(b.name)});const parts=Object.keys(groups).sort((a,b)=>((order.indexOf(a)+1)||99)-((order.indexOf(b)+1)||99)).map(r=>`${r.toUpperCase()}: ${groups[r].join(', ')}`);const tail=enemy?` ${enemy} involvement suspected — trust no one.` : '';return parts.length?`${desc} ${parts.join(' vs ')}.${tail}`:`${desc}${tail}`}
+function refreshBackstory(s){const m=MISSIONS.find(x=>x.t===s.type);if(!m)return;s.backstory=buildBackstory(m,s.sides||[],s.enemy||'')}
 function migrateScenario(s){if(!Array.isArray(s.sides))s.sides=[];(s.objectives||[]).forEach(o=>{if(o.by&&!S.brigades.some(b=>b.id===o.by))o.by=''});const byBrig={};(s.objectives||[]).forEach(o=>{if(o.by&&S.brigades.some(b=>b.id===o.by))(byBrig[o.by]=byBrig[o.by]||[]).push(o)});Object.keys(byBrig).forEach((bid,i)=>{let sd=s.sides.find(x=>x.brigadeId===bid);if(!sd){sd={id:uid(),role:SIDE_ROLES[i]||'Raider',brigadeId:bid};s.sides.push(sd)}byBrig[bid].forEach(o=>{o.sideId=sd.id})});(s.objectives||[]).forEach(o=>{if(o.required!==true&&o.required!==false)o.required=false});s.sides.forEach(sd=>{const mine=(s.objectives||[]).filter(o=>o.sideId===sd.id);if(mine.length&&!mine.some(o=>o.required)){const first=mine.find(o=>o.enabled)||mine[0];first.required=true}});if(typeof s.backstory==='string')s.backstory=s.backstory.replace(/Employer:\s*[^.]+\.\s*/g,'').replace(/\bDraconis Combine\b/gi,'the enemy').replace(/\bDraconis\b/gi,'enemy').replace(/\bHinterlands\b/gi,'the frontier')}
 function buildScenarioFields(gid,opNo,m){const opfor=['Green (+0)','Regular (+5% BV)','Veteran (+12% BV, -1 enemy skill)','Elite (+20% BV, -2 skill)'][Math.floor(Math.random()*4)];
 const parts=liveBrigs();
 const sides=parts.map((bg,i)=>({id:uid(),role:SIDE_ROLES[i]||'Raider',brigadeId:bg.id}));
 const nSides=sides.length;
 const objs=nSides?sides.flatMap(sd=>genSideObjectives(m,sd,parts.find(x=>x.id===sd.brigadeId),nSides)):(m.obj||[]).map((o,i)=>({id:uid(),text:o,payout:Math.round((m.pay||0)/Math.max(1,(m.obj||[]).length)),enabled:true,required:i===0,auto:false,by:'',sideId:null}));
-return {gameDateId:gid,title:`${m.t} — Op ${opNo}`,type:m.t,backstory:buildBackstory(m,sides),sides,objectives:objs,map:m.map,opfor,salvage:{}}}
+const foes=((curSeries()||{}).enemies||[]);const foe=foes.length?foes[Math.floor(Math.random()*foes.length)]:'';
+return {gameDateId:gid,title:`${m.t} — Op ${opNo}`,type:m.t,backstory:buildBackstory(m,sides,foe),sides,enemy:foe,objectives:objs,map:m.map,opfor,salvage:{}}}
 document.getElementById('genBtn').onclick=()=>{
 const gid=document.getElementById('genDate').value;if(!gid)return toast('Create a game date first');
 const n=+document.getElementById('genCount').value||10;
@@ -587,5 +594,19 @@ b1.active=[{mech:b1.inventory[0].id,pilot:b1.roster[0].id,on:true},{mech:b1.inve
 document.getElementById('wipeBtn').onclick=async()=>{if(await confirmDlg('Wipe all data? This cannot be undone.','Wipe all')){S={era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[],outcomes:[],selScenario:null,activePredrop:null};save();renderAll()}};
 document.getElementById('jsonBtn').onclick=()=>{const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bt-backup.json';a.click()};
 document.getElementById('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{S=JSON.parse(r.result);save();renderAll()};r.readAsText(f)};
-function renderAll(){save();renderDates();renderBrigs();renderScens();renderOutcomes();refreshImportDates()}
+function renderAll(){save();renderSeries();renderDates();renderBrigs();renderScens();renderOutcomes();refreshImportDates()}
+function renderSeries(){const box=document.getElementById('seriesBox');if(!box)return;
+if(!Array.isArray(S.series)||!S.series.length){S.series=[{id:uid(),name:'Main Campaign',enemies:[],snap:snapOf(S)}];S.activeSeriesId=S.series[0].id}
+const cur=curSeries();
+box.innerHTML=`<div class="row wrap"><label>Series <select id="seriesSel">${S.series.map(s=>{const live=s.id===S.activeSeriesId;const d=live?S.dates:(s.snap.dates||[]),b=live?S.brigades:(s.snap.brigades||[]);return `<option value="${s.id}" ${live?'selected':''}>${s.name} (${d.length} dates, ${b.length} brigades)</option>`}).join('')}</select></label><button class="btn small" id="seriesNew">+ New Series</button>${renamingSeries?`<input id="seriesRenameInput" value="${escA(cur.name)}" style="min-width:140px"><button class="btn small" id="seriesRenameSave">Save</button><button class="btn small" id="seriesRenameCancel">Cancel</button>`:`<button class="btn small" id="seriesRename">Rename</button>`}<button class="btn small" id="seriesDel">Delete</button></div>
+<p class="hint">Each series is a complete dataset — dates, brigades, scenarios and outcomes stay with their series and follow you across every tab.</p>
+<h4>Common enemies <span class="hint">(named in new contract backgrounds)</span></h4><div class="row"><input id="enemyName" placeholder="e.g. Jade Falcon" style="flex:1;min-width:140px"><button class="btn small" id="enemyAdd">+ Enemy</button></div><div class="row">${(cur.enemies||[]).map((e,i)=>`<span class="pill">${e} <button class="btn small" data-enemydel="${i}" title="Remove enemy">x</button></span>`).join('')||'<span class="hint">None — contracts generate without a foe.</span>'}</div>`;
+document.getElementById('seriesSel').onchange=e=>switchSeries(e.target.value);
+document.getElementById('seriesNew').onclick=()=>{const c=curSeries();if(c)c.snap=snapOf(S);const rec={id:uid(),name:`Series ${S.series.length+1}`,enemies:[],snap:{dates:[],brigades:[],scenarios:[],outcomes:[],selScenario:null,activePredrop:null}};S.series.push(rec);applySnap(JSON.parse(JSON.stringify(rec.snap)));S.activeSeriesId=rec.id;OD=null;editingOutcomeId=null;calView={y:null,m:null};save();renderAll();toast(`New series '${rec.name}' — empty dataset`)};
+const rn=document.getElementById('seriesRename');if(rn)rn.onclick=()=>{renamingSeries=true;renderSeries();const i=document.getElementById('seriesRenameInput');if(i){i.focus();i.select()}};
+const rs=document.getElementById('seriesRenameSave');if(rs)rs.onclick=()=>{const i=document.getElementById('seriesRenameInput');const v=i&&i.value.trim();if(v)curSeries().name=v;renamingSeries=false;save();renderSeries()};
+const rc=document.getElementById('seriesRenameCancel');if(rc)rc.onclick=()=>{renamingSeries=false;renderSeries()};
+document.getElementById('seriesDel').onclick=async()=>{if(S.series.length<2)return toast('Cannot delete the last series');const c=curSeries();if(!await confirmDlg(`Delete series '${c.name}' and ALL its dates, brigades, scenarios and outcomes?`,'Delete'))return;S.series=S.series.filter(x=>x.id!==c.id);const t=S.series[0];applySnap(JSON.parse(JSON.stringify(t.snap)));S.activeSeriesId=t.id;OD=null;editingOutcomeId=null;calView={y:null,m:null};save();renderAll();toast(`Deleted series '${c.name}'`)};
+document.getElementById('enemyAdd').onclick=()=>{const i=document.getElementById('enemyName');const v=(i.value||'').trim();if(!v)return toast('Name the enemy first');const c=curSeries();c.enemies=c.enemies||[];if(!c.enemies.includes(v))c.enemies.push(v);save();renderSeries();toast(`'${v}' will haunt new contracts`)};
+box.querySelectorAll('[data-enemydel]').forEach(x=>x.onclick=()=>{curSeries().enemies.splice(+x.dataset.enemydel,1);save();renderSeries()})}
 renderAll();
