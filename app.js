@@ -72,6 +72,7 @@ let calView={y:null,m:null};
 let sayId=null;
 let OD=null,editingOutcomeId=null;
 let scenTab='select'; // scenarios Selection/Review tab
+let dateTab='future'; // Game Dates list tab: future (>= today) | past (< today)
 function selScen(){return S.scenarios.find(x=>x.id===S.selScenario&&x.status!=='discarded')||null}
 function renderScenTabs(){const bar=document.getElementById('scenTabs');if(!bar)return;const sel=selScen();if(!sel)scenTab='select';
 bar.innerHTML=`<button class="btn small${scenTab==='select'?' on':''}" data-stab="select">Selection (${S.scenarios.filter(s=>s.status!=='discarded').length})</button><button class="btn small${scenTab==='review'?' on':''}" data-stab="review" ${sel?'':'disabled'} title="${sel?('Review: '+sel.title):'Select a contract on the Selection tab first'}">Review${sel?` — ${sel.title}`:''}</button>`;
@@ -138,10 +139,7 @@ html+='</div>';
 cal.innerHTML=html;
 cal.querySelectorAll('[data-cal]').forEach(b=>b.onclick=()=>{const v=+b.dataset.cal;if(v===0){calView={y:null,m:null};renderCalendar()}else calShift(v)});
 }
-function renderDates(){const el=document.getElementById('dateList');el.innerHTML='';const today=todayStr();
-S.dates.sort((a,b)=>a.date.localeCompare(b.date));
-const upcomingId=upcomingGameId();
-S.dates.forEach(g=>{if(g.date<today&&!g.locked&&g.status==='open'){g.locked=true}
+function dateRow(g,today,upcomingId){if(g.date<today&&!g.locked&&g.status==='open'){g.locked=true}
 const d=document.createElement('div');d.className='date-row'+(g.locked?' locked':'');
 const up=g.id===upcomingId?' <span class="pill upcoming">UPCOMING</span>':'';
 d.innerHTML=`<b>${g.date}</b> <span class="pill ${g.locked?'lock':g.status==='cancelled'?'cancel':'open'}">${g.locked?'LOCKED':g.status.toUpperCase()}</span>${up} <span>${g.note||''}</span><div class="row"></div>`;
@@ -154,7 +152,15 @@ const act=S.scenarios.find(s=>s.gameDateId===g.id&&s.status==='active');
 const ind=document.createElement('div');ind.className='hint';ind.style.marginTop='4px';ind.textContent=act?`✓ Committed & signed: ${act.title}`:'No committed contract';d.appendChild(ind);
 const gm=document.createElement('button');gm.className='btn small';gm.textContent='Mode: '+(g.mode||S.mode||'TW');gm.title='Flip this game date between Total Warfare (BV) and Alpha Strike (PV)';gm.onclick=()=>{g.mode=(g.mode||S.mode||'TW')==='TW'?'AS':'TW';if(g.id===upcomingGameId()){setMode(g.mode);toast(`Upcoming date mode: ${g.mode==='TW'?'Total Warfare':'Alpha Strike'} — top bar follows`)}else{save();renderAll();toast(`Game date mode: ${g.mode==='TW'?'Total Warfare':'Alpha Strike'} (top bar unchanged)`)} };row.appendChild(gm);
 mk('Delete',async()=>{if(await confirmDlg('Delete date?','Delete')){S.dates=S.dates.filter(x=>x.id!==g.id);save();renderAll()}});
-el.appendChild(d)});save();
+return d}
+function renderDates(){const el=document.getElementById('dateList');el.innerHTML='';const today=todayStr();
+S.dates.sort((a,b)=>a.date.localeCompare(b.date));
+const upcomingId=upcomingGameId();
+const fut=S.dates.filter(g=>g.date>=today),past=S.dates.filter(g=>g.date<today);
+const bar=document.getElementById('dateTabs');
+if(bar){bar.innerHTML=`<button class="btn small${dateTab==='future'?' on':''}" data-dtab="future">Future (${fut.length})</button><button class="btn small${dateTab==='past'?' on':''}" data-dtab="past">Past (${past.length})</button>`;
+bar.querySelectorAll('[data-dtab]').forEach(x=>x.onclick=()=>{dateTab=x.dataset.dtab;renderDates()})}
+(dateTab==='future'?fut:past).forEach(g=>el.appendChild(dateRow(g,today,upcomingId)));save();
 // calendar
 renderCalendar();
 // gen date select
