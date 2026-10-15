@@ -109,13 +109,8 @@ function eraTag(yr){const b=eraBounds();if(yr==null||isNaN(+yr)||!b)return '<spa
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('tab-'+b.dataset.tab).classList.add('active')});
 // ERA + MODE
 const eraSel=document.getElementById('eraSelect');ERAS.forEach(e=>{const o=document.createElement('option');o.textContent=e;eraSel.appendChild(o)});eraSel.value=S.era;eraSel.onchange=()=>{S.era=eraSel.value;save();renderAll()};
-function setMode(m,quiet){S.mode=m;save();document.getElementById('modeTW').classList.toggle('active',m==='TW');document.getElementById('modeAS').classList.toggle('active',m==='AS');
-if(!quiet){const s=S.scenarios.find(x=>x.id===S.activePredrop)||S.scenarios.find(x=>x.status==='active');const g=s&&S.dates.find(x=>x.id===s.gameDateId);
-if(g&&s){const want=m==='TW'?'Total Warfare':'Alpha Strike';
-if(g.locked){if((g.mode||m)!==m)toast(`${g.date} is locked — kept ${(g.mode||'TW')==='TW'?'Total Warfare':'Alpha Strike'}`)}
-else if(g.mode!==m){g.mode=m;save();toast(`${g.date} now ${want} — Pre-Drop recomputed`)}}}
-renderAll()}
-document.getElementById('modeTW').onclick=()=>setMode('TW');document.getElementById('modeAS').onclick=()=>setMode('AS');setMode(S.mode||'TW',true);
+function setMode(m){S.mode=m;save();document.getElementById('modeTW').classList.toggle('active',m==='TW');document.getElementById('modeAS').classList.toggle('active',m==='AS');renderAll()}
+document.getElementById('modeTW').onclick=()=>setMode('TW');document.getElementById('modeAS').onclick=()=>setMode('AS');setMode(S.mode||'TW');
 // SCHEDULE
 document.getElementById('addDateBtn').onclick=()=>{const d=document.getElementById('newDate').value;if(!d)return toast('Pick a date');S.dates.push({id:uid(),date:d,note:document.getElementById('newDateNote').value,status:'open',locked:false,mode:S.mode||'TW'});save();renderAll();toast('Game date added')};
 function todayStr(){return new Date().toISOString().slice(0,10)}
@@ -155,7 +150,7 @@ if(g.date<today)mk(g.locked?'🔒':'🔓',()=>{g.locked=!g.locked;save();renderA
 mk('Edit note',()=>{if(row.querySelector('[data-noteedit]'))return;const inp=document.createElement('input');inp.value=g.note||'';inp.placeholder='Game date note';inp.setAttribute('data-noteedit','1');inp.style.minWidth='160px';const set=document.createElement('button');set.className='btn small';set.textContent='Save note';set.onclick=()=>{g.note=inp.value;save();renderAll();toast('Game date note updated')};row.appendChild(inp);row.appendChild(set);inp.focus()});
 const act=S.scenarios.find(s=>s.gameDateId===g.id&&s.status==='active');
 const ind=document.createElement('div');ind.className='hint';ind.style.marginTop='4px';ind.textContent=act?`✓ Committed & signed: ${act.title}`:'No committed contract';d.appendChild(ind);
-const gm=document.createElement('button');gm.className='btn small';gm.textContent='Mode: '+(g.mode||S.mode||'TW');gm.title='Flip this game date between Total Warfare (BV) and Alpha Strike (PV)';gm.onclick=()=>{g.mode=(g.mode||S.mode||'TW')==='TW'?'AS':'TW';if(g.id===upcomingGameId()){setMode(g.mode,true);toast(`Upcoming date mode: ${g.mode==='TW'?'Total Warfare':'Alpha Strike'} — top bar follows`)}else{save();renderAll();toast(`Game date mode: ${g.mode==='TW'?'Total Warfare':'Alpha Strike'} (top bar unchanged)`)} };if(!g.locked)row.appendChild(gm);
+const gm=document.createElement('button');gm.className='btn small';gm.textContent='Mode: '+(g.mode||S.mode||'TW');gm.title='Flip this game date between Total Warfare (BV) and Alpha Strike (PV)';gm.onclick=()=>{g.mode=(g.mode||S.mode||'TW')==='TW'?'AS':'TW';if(g.id===upcomingGameId()){setMode(g.mode);toast(`Upcoming date mode: ${g.mode==='TW'?'Total Warfare':'Alpha Strike'} — top bar follows`)}else{save();renderAll();toast(`Game date mode: ${g.mode==='TW'?'Total Warfare':'Alpha Strike'} (top bar unchanged)`)} };if(!g.locked)row.appendChild(gm);
 mk('Delete',async()=>{if(await confirmDlg('Delete date?','Delete')){S.dates=S.dates.filter(x=>x.id!==g.id);save();renderAll()}});
 return d}
 function renderDates(){const el=document.getElementById('dateList');el.innerHTML='';const today=todayStr();
@@ -363,7 +358,8 @@ el.querySelectorAll('[data-sal]').forEach(c=>c.oninput=()=>{const[si,bi]=c.datas
 function renderPredropSel(){const sel=document.getElementById('predropSelect');const act=S.scenarios.filter(s=>s.status==='active'||s.status==='available');sel.innerHTML=act.map(s=>`<option value="${s.id}" ${s.id===S.activePredrop?'selected':''}>${s.title} [${s.status}]</option>`).join('')||'<option value="">—</option>';if(!S.activePredrop&&act[0])S.activePredrop=act[0].id;sel.onchange=()=>{S.activePredrop=sel.value;save();renderPredrop()};renderPredrop()}
 document.getElementById('refreshPredrop').onclick=()=>renderPredrop();
 function renderPredrop(){const el=document.getElementById('predropOut');const s=S.scenarios.find(x=>x.id===S.activePredrop);if(!s){el.innerHTML='<p class="hint">No scenario selected.</p>';return}
-const M=scenMode(s);
+const M=S.mode||'TW'; // Pre-Drop is a planning view: it always follows the top-bar mode
+const DM=scenMode(s); // the scenario's recorded date mode (history)
 function pdFin(b,a){const m=b.inventory.find(x=>x.id===a.mech);if(!m)return null;const p=b.roster.find(x=>x.id===a.pilot);
 const base=M==='TW'?m.bv:m.pv;const adj=M==='TW'&&p?adjBV(m.bv,p.g,p.p):(!p?base:(m.pv+(pvSkill(p.g,p.p)-18)));
 const opBonus=M==='TW'?Math.round(adj*0.08):Math.round(adj*0.05); // OpFor + conditions transparent bump
@@ -379,7 +375,7 @@ if(!n)rows+=`<tr><td colspan=8 class="hint">No deployed mechs — load dropship 
 rows+=`<tr><td colspan=7 style="text-align:right"><b>Subtotal — ${g.name}</b></td><td><b>${sub.toLocaleString()}</b></td></tr>`;grand+=sub});
 if(!pdGroups.length)rows='<tr><td colspan=8 class="hint">No participants — add brigades under Sides & Participation in Contract Review.</td></tr>';
 const assetBV=S.mode==='TW'?1200:28;
-el.innerHTML=`<h3>${s.title} — ${M==='TW'?'Total Warfare (BV)':'Alpha Strike (PV)'} <span class="hint">(game date mode)</span></h3>
+el.innerHTML=`<h3>${s.title} — ${M==='TW'?'Total Warfare (BV)':'Alpha Strike (PV)'}${DM!==M?` <span class="hint">(date recorded as ${DM==='TW'?'Total Warfare':'Alpha Strike'})</span>`:''}</h3>
 <p><b>Setup:</b> Map ${s.map.size} at ${s.map.loc} (${s.map.ter}). ${s.map.cond}. OpFor: ${s.opfor}. GM assets: Sensor post (BV ${assetBV}), convoy trucks x2 — place per objectives before first turn.</p>
 <table><tr><th>Brigade</th><th></th><th>Mech</th><th>Pilot (recorded)</th><th>Base</th><th>Skill mod</th><th>Scenario mod</th><th>Deployed (${M==='TW'?'BV':'PV'})</th></tr>${rows}</table>
 <p><b>Force total: ${grand.toLocaleString()} ${M==='TW'?'BV':'PV'}</b> (base + pilot skill + transparent OpFor/condition bump). Base skills unchanged on roster — modifiers apply to this game only.</p>
