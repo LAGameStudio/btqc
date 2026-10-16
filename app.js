@@ -513,12 +513,12 @@ if(!editingOutcomeId&&OD.scenarioId&&OD.brigadeId&&OD.pulledFor!==OD.brigadeId+'
 const sc=S.scenarios.find(x=>x.id===OD.scenarioId);
 const scDate=S.dates.find(g=>g.id===(sc?sc.gameDateId:OD.gameDateId));
 if(sc&&OD.payScen!==sc.id+':'+OD.brigadeId){OD.pay=scopedPay(sc,OD.brigadeId);OD.payScen=sc.id+':'+OD.brigadeId}
-const brigOpts=liveBrigs().map(b=>`<option value="${b.id}" ${b.id===OD.brigadeId?'selected':''}>${b.name}</option>`).join('')||'<option value="">— add a brigade first —</option>';
+const brigOpts=liveBrigs().map(b=>{const sd=sc&&(sc.sides||[]).find(x=>x.brigadeId===b.id);return `<option value="${b.id}" ${b.id===OD.brigadeId?'selected':''}>${b.name} \u2014 ${sd?sd.role:'no side'}</option>`}).join('')||'<option value="">— add a brigade first —</option>';
 const pastOpts=(()=>{const out=[];S.dates.filter(g=>g.date<todayStr()).sort((a,b)=>b.date.localeCompare(a.date)).forEach(g=>{S.scenarios.filter(s=>s.gameDateId===g.id&&s.status!=='discarded').forEach(s=>out.push({g,s}))});return out})();
 el.innerHTML=`<div class="row wrap"><span class="pill ${sc?'contemp contract':'cancel'}">${editingOutcomeId?'EDITING OUTCOME':(OD.revise?'REVISING PRIOR':'Active contract')}</span><b>${sc?escH(sc.title):'—'}</b><span class="hint">${scDate?scDate.date+' '+(scDate.note||''):''}</span></div>
 ${editingOutcomeId?'<p class="hint">Editing a committed outcome — scenario and brigade stay as recorded.</p>':`<div class="catbox"><h5><button class="btn small" id="reviseToggle">${OD.revise?'▾':'▸'} Revise Prior Contract</button>${OD.revise?'':`<span class="hint">active contract selected${sc?`: '${escH(sc.title)}' — ${scDate?scDate.date:''}`:''}</span>`}</h5>${OD.revise?`<div class="row"><label>Past game <select id="reviseScen" style="min-width:220px"><option value="">— pick a past game with a contract —</option>${pastOpts.map(o=>`<option value="${o.s.id}" ${o.s.id===OD.scenarioId?'selected':''}>${o.g.date}${o.g.note?' — '+escH(o.g.note):''} — ${escH(o.s.title)} [${o.s.status}]</option>`).join('')}</select></label></div>`:''}</div>`}
 <div class="row wrap"><label>Brigade <select id="ocBrig" ${editingOutcomeId?'disabled title="Locked while editing a committed outcome"':''}>${brigOpts}</select></label>
-<button class="btn small" data-ocnew>New</button></div>
+</div>
 <div class="row wrap"><label class="check"><input type="checkbox" id="ocFailed" ${OD.failed?'checked':''}> Contract FAILED (no payouts)</label>
 <input id="ocNote" placeholder="GM note e.g. glorious victory" value="${(OD.note||'').replace(/"/g,'&quot;')}" style="flex:1;min-width:160px"></div>
 <h4>MechWarriors & Mechs</h4><table><tr><th>Pilot</th><th>Mech</th><th>Dead</th><th>Hits</th><th>Ejected</th><th>Gun ticks</th><th></th></tr>
@@ -533,7 +533,7 @@ el.querySelector('#ocBrig').onchange=()=>{ocSync();if(editingOutcomeId){save();r
 const rt=el.querySelector('#reviseToggle');if(rt)rt.onclick=()=>{ocSync();if(OD.revise){const keepB=OD.brigadeId;OD=ocNew();if(liveBrigs().some(b=>b.id===keepB))OD.brigadeId=keepB;editingOutcomeId=null;pullRows(OD.brigadeId,true)}else OD.revise=true;save();renderOutcomes()};
 const rs=el.querySelector('#reviseScen');if(rs)rs.onchange=()=>{const s=S.scenarios.find(x=>x.id===rs.value);if(!s){save();renderOutcomes();return}ocSync();OD.gameDateId=s.gameDateId;OD.scenarioId=s.id;OD.pay=[];OD.payScen='';OD.rows=[];OD.salvage=[];pullRows(OD.brigadeId);save();renderOutcomes()};
 el.querySelector('#ocFailed').onchange=()=>{ocSync();save();renderOutcomes()};
-el.querySelector('[data-ocnew]').onclick=()=>{OD=ocNew();editingOutcomeId=null;pullRows(OD.brigadeId,true);save();renderOutcomes()};
+
 el.querySelector('[data-occommit]').onclick=commitOutcome;
 const cancel=el.querySelector('[data-occancel]');if(cancel)cancel.onclick=()=>{OD=ocNew();editingOutcomeId=null;save();renderOutcomes()};
 el.querySelectorAll('[data-rdel]').forEach(b=>b.onclick=()=>{ocSync();OD.rows=OD.rows.filter(r=>r.rid!==b.dataset.rdel);save();renderOutcomes()});
