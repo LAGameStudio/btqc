@@ -261,7 +261,7 @@ ok.onclick=()=>done('sell');ex.onclick=()=>done('expunge');cx.onclick=()=>done(n
 ov.onclick=e=>{if(e.target===ov)done(null)};
 document.addEventListener('keydown',esc)})}
 el.querySelectorAll('[data-repair]').forEach(x=>x.onclick=async e=>{const[bi,mi]=x.dataset.repair.split(':');const b=S.brigades.find(v=>v.id===bi);const m=b&&b.inventory.find(v=>v.id===mi);if(!b||!m)return;const dmg=Math.max(0,Math.min(100,+m.dmg||0));if(!dmg){toast('Mech is undamaged');return}const cost=Math.round((+m.cb||0)*dmg/100);if(!await confirmDlg(`Repair '${m.n}' (${dmg}% damage) for ${cost.toLocaleString()} C-Bills?`,'Repair',e))return;m.dmg=0;b.ledger=b.ledger||[];b.ledger.push({id:uid(),label:`Mech Repair: ${m.n} (${dmg}% damage)`,amount:-cost,ignored:false,outcomeId:null,date:todayStr()});blog(b,`Repaired '${m.n}' (damage ${dmg}% → 0) for ${cost.toLocaleString()} C-Bills ledger`);save();renderBrigs()});
-el.querySelectorAll('[data-addp]').forEach(x=>x.onclick=()=>{const b=S.brigades.find(v=>v.id===x.dataset.addp);const nm=el.querySelector(`[data-pn="${b.id}"]`).value||'MechWarrior';b.roster.push({id:uid(),n:nm,g:+el.querySelector(`[data-pg="${b.id}"]`).value||4,p:+el.querySelector(`[data-pp="${b.id}"]`).value||5});blog(b,`Pilot Added: '${nm}'`);save();renderAll()});
+el.querySelectorAll('[data-addp]').forEach(x=>x.onclick=()=>{const b=S.brigades.find(v=>v.id===x.dataset.addp);const nm=el.querySelector(`[data-pn="${b.id}"]`).value||'MechWarrior';b.roster.push({id:uid(),n:nm,g:+el.querySelector(`[data-pg="${b.id}"]`).value||4,p:+el.querySelector(`[data-pp="${b.id}"]`).value||5,xp:1});blog(b,`Pilot Added: '${nm}'`);blog(b,`Mechwarrior Training: '+1 XP for '${nm}''`);save();renderAll()});
 el.querySelectorAll('[data-rmp]').forEach(x=>x.onclick=async e=>{const[bi,pi]=x.dataset.rmp.split(':');const b=S.brigades.find(v=>v.id===bi);const p=b&&b.roster.find(v=>v.id===pi);if(!b||!p)return;const used=b.active.some(a=>a.pilot===pi);if(!await confirmDlg(`Remove pilot '${p.n}' (${p.g}/${p.p}) from '${b.name}' roster?${used?' They are assigned to a dropship load slot.':''}`,'Remove',e))return;b.roster=b.roster.filter(v=>v.id!==pi);blog(b,`Pilot Removed: '${p.n}'`);save();renderAll()});
 el.querySelectorAll('[data-pticks]').forEach(x=>x.onchange=()=>{const[bi,pi]=x.dataset.pticks.split(':');const b=S.brigades.find(v=>v.id===bi);const p=b&&(b.roster||[]).find(v=>v.id===pi);if(!b||!p)return;const old=+p.ticks||0,nw=Math.max(0,Math.round(+x.value||0));if(old===nw){save();renderBrigs();return}p.ticks=nw;blog(b,`Gun ticks for '${p.n}' changed from ${old} to ${nw}`);save();renderBrigs()});
 el.querySelectorAll('[data-pxp]').forEach(x=>x.onchange=()=>{const[bi,pi]=x.dataset.pxp.split(':');const b=S.brigades.find(v=>v.id===bi);const p=b&&(b.roster||[]).find(v=>v.id===pi);if(!b||!p)return;const old=Math.max(0,Math.round(+p.xp||0)),nw=Math.max(0,Math.round(+x.value||0));if(old===nw){save();renderBrigs();return}p.xp=nw;blog(b,`XP for '${p.n}' changed from ${old} to ${nw}`);save();renderBrigs()});
@@ -702,7 +702,7 @@ for(const r of pg.slice(hi+1)){const nm=(r[ni]||'').trim();if(!nm){continue}
 let g=odsSkill(r[pi],4),p=odsSkill(r[gi],5);
 const comb=String(r[pi]||'').match(/(\d)\s*\/\s*(\d)/)||String(r[gi]||'').match(/(\d)\s*\/\s*(\d)/);
 if(comb){g=Math.max(0,Math.min(8,+comb[1]));p=Math.max(0,Math.min(8,+comb[2]))}
-roster.push({id:uid(),n:nm,g,p})}}
+roster.push({id:uid(),n:nm,g,p,xp:1})}}
 // Mechs sheet: Name + Model/Variant + optional BV/PV/C-Bills
 const mechs=[];
 const mg=grids[pick(/mech/i)]||[];
@@ -725,7 +725,7 @@ const iledger=[{id:uid(),label:'Initial Investment',amount:Math.round(cbills),ig
 mechs.forEach(m=>iledger.push({id:uid(),label:'Mech Purchased: '+m.n,amount:-Math.round(+m.cb||0),ignored:false,outcomeId:null,date:todayStr()}));
 const b={id:uid(),name:bname||f.name.replace(/\.ods$/i,'')||'Imported Brigade',employer:employer||'Independent',ledger:iledger,log:newLog(),retired:false,inventory:mechs,roster,active:[],dropship:true,memorial:[]};
 S.brigades.push(b);save();renderAll();
-toast(`Imported '${b.name}': ${mechs.length} mechs, ${roster.length} pilots${skipped?`, skipped ${skipped} rows`:''}`);
+if(roster.length)blog(b,`Mechwarrior Training: '+1 XP for ${roster.length} imported pilot(s)'`);toast(`Imported '${b.name}': ${mechs.length} mechs, ${roster.length} pilots${skipped?`, skipped ${skipped} rows`:''}`);
 }catch(err){console.warn(err);toast('Could not read ODS: '+(err&&err.message||err))}})()};
 // IMPORT SHEETS CSV (round-trip of the Export format)
 let parsedImport=null;
@@ -751,7 +751,7 @@ ${p.map.size?`<p><b>Map:</b> ${p.map.size} — ${p.map.loc} — ${p.map.ter} —
 function brigadeByName(n){let b=S.brigades.find(x=>x.name.toLowerCase()===n.toLowerCase());if(!b){b={id:uid(),name:n,employer:'Imported',ledger:newLedger(),log:newLog(),retired:false,inventory:[],roster:[],active:[],dropship:true,memorial:[]};S.brigades.push(b)}return b}
 function mechForInventory(b,mechName){let m=b.inventory.find(x=>x.n===mechName);if(m)return m;const cat=MECHS.find(v=>v.n===mechName)||MECHS.find(v=>v.n.toLowerCase()===mechName.toLowerCase());if(!cat)return null;const {canon,...rest}=cat;m={id:uid(),...rest};b.inventory.push(m);return m}
 function pilotForRoster(b,pilotName,gp){let g=4,p=5;const mm=String(gp||'').match(/(\d+)\s*\/\s*(\d+)/);if(mm){g=+mm[1];p=+mm[2]}
-let r=b.roster.find(x=>x.n.toLowerCase()===(pilotName||'').toLowerCase());if(!r){r={id:uid(),n:pilotName||'MechWarrior',g,p};b.roster.push(r)}return r}
+let r=b.roster.find(x=>x.n.toLowerCase()===(pilotName||'').toLowerCase());if(!r){r={id:uid(),n:pilotName||'MechWarrior',g,p,xp:1};b.roster.push(r);blog(b,`Mechwarrior Training: '+1 XP for '${r.n}''`)}return r}
 document.getElementById('sheetFile').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;(async()=>{try{const grids=odsGrids(await odsContentXML(f));parsedImport=parseSheetODS(grids);renderImportPreview();toast('Parsed '+parsedImport.forces.length+' forces, '+parsedImport.objectives.length+' objectives')}catch(err){console.warn(err);toast('Could not read ODS: '+(err&&err.message||err))}})()};
 document.getElementById('applyImportBtn').onclick=()=>{
 if(!parsedImport)return;const gid=document.getElementById('importDate').value;if(!gid)return toast('Create a game date first');
@@ -782,8 +782,8 @@ document.addEventListener('keydown',esc)})}
 document.getElementById('seedBtn').onclick=async()=>{const mode=await seedChoiceDlg();if(!mode)return;
 const pick=n=>{const m=MECHS.find(v=>v.n.toLowerCase().includes(n.toLowerCase()))||MECHS[0];const {canon,...rest}=m;return {id:uid(),...rest}};
 const demoDate=()=>({id:uid(),date:new Date().toISOString().slice(0,10),note:'Shop Night — demo',status:'open',locked:false,mode:S.mode||'TW'});
-const demoBrigade=()=>{const b={id:uid(),name:'Iron Jackals',employer:'Federated Suns',ledger:newLedger(),log:newLog(),retired:false,inventory:[pick('Marauder MAD-3R'),pick('Hunchback HBK-4G')],roster:[{id:uid(),n:'Vera "Hammer" Kao',g:3,p:4},{id:uid(),n:'Dax Renn',g:4,p:5}],active:[],dropship:true,memorial:[]};
-b.active=[{mech:b.inventory[0].id,pilot:b.roster[0].id,on:true},{mech:b.inventory[1].id,pilot:b.roster[1].id,on:true}];return b};
+const demoBrigade=()=>{const b={id:uid(),name:'Iron Jackals',employer:'Federated Suns',ledger:newLedger(),log:newLog(),retired:false,inventory:[pick('Marauder MAD-3R'),pick('Hunchback HBK-4G')],roster:[{id:uid(),n:'Vera "Hammer" Kao',g:3,p:4,xp:1},{id:uid(),n:'Dax Renn',g:4,p:5,xp:1}],active:[],dropship:true,memorial:[]};
+b.active=[{mech:b.inventory[0].id,pilot:b.roster[0].id,on:true},{mech:b.inventory[1].id,pilot:b.roster[1].id,on:true}];blog(b,`Mechwarrior Training: '+1 XP for ${b.roster.length} starting pilot(s)'`);return b};
 if(mode==='replace'){if(!await confirmDlg('Replace ALL current dates and brigades with the demo campaign? This cannot be undone.','Replace'))return;
 S.dates=[demoDate()];S.brigades=[demoBrigade()];save();renderAll();toast('Demo campaign loaded (replaced)')}
 else{const b=demoBrigade();let nm=b.name,k=2;while(S.brigades.some(x=>x.name===nm))nm=`${b.name} (${k++})`;b.name=nm;
