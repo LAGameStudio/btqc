@@ -16,7 +16,6 @@
       <button id="modeTW" class="seg-btn active">TOTAL WARFARE<br><small>BV</small></button>
       <button id="modeAS" class="seg-btn">ALPHA STRIKE<br><small>PV</small></button>
     </div>
-    <button id="exportBtn" class="btn glow">⇩ Export</button><button id="importBtn" class="btn">⇧ Import</button>
   </div>
 </header>
 <nav class="tabs" role="tablist">
@@ -80,7 +79,7 @@
 </section>
 <section id="tab-settings" class="panel">
   <div class="card"><h2>Settings & Data</h2>
-    <div class="row wrap"><button class="btn" id="seedBtn">Load Demo Campaign</button><button class="btn danger" id="wipeBtn">Wipe All Data</button><button class="btn" id="jsonBtn">Export JSON</button><label class="btn">Import JSON <input type="file" id="importFile" hidden accept=".json"></label></div>
+    <div class="row wrap"><button class="btn glow" id="exportBtn">⇩ Export</button><button class="btn" id="importBtn">⇧ Import</button><button class="btn" id="seedBtn">Load Demo Campaign</button><button class="btn danger" id="wipeBtn">Wipe All Data</button><button class="btn" id="jsonBtn">Export JSON</button><label class="btn">Import JSON <input type="file" id="importFile" hidden accept=".json"></label></div>
     <h3>Mech Quick-Add Reference (BV/PV/C-Bills)</h3><div id="mechRef" class="mechref"></div>
     <h3>Rules Notes</h3><ul class="notes"><li>Sources: Campaign Operations, Mercenaries, Hinterlands, Draconis Combine campaign books. OpFor & objective modifiers are transparent in Pre-Drop.</li><li>BV skill multiplier uses Classic table (4/5 = 1.00). PV skill uses AS Companion p.92 (+1 skill ≈ +~10%).</li><li>Monthly upkeep = 10,000 per 4-mech block in depot (rounded up: 1-4 mechs = 1 block) + combined pilot salaries (1,500 x skill multiplier, see Roster $/Month) + 20,000 Dropship (flight crew 10 x 1,000 + fuel & fees 10,000).</li><li>Sheets export: ODS workbook with Forces / Objectives / Map sheets — opens in LibreOffice or Google Sheets (File → Import).</li><li>Game dates carry their own TW/AS mode switch (the recorded ruleset). Pre-Drop always follows the top-bar mode switch; Export follows the scenario's date.</li><li>Roster Hits shows each pilot's hits from the last contract; over 2 hits puts them in medbay (unavailable next mission, cleared from load slots).</li><li>Salvage rights split per side on Scenarios › Review (each side's brigades share 100%; a lone brigade takes 100% if victorious; Raider 'To the Victor Goes the Spoils' suspends fixed splits).</li><li>Outcomes tab: commit a game's result (payouts, salvage, pilot fates) to a brigade's accounting; editing or deleting reverses the old application.</li><li>Mech icons show battlefield role: 👊 Brawler, 🪓 Striker, 🔭 Scout, 🚀 Missile Boat, 🎯 Sniper, ⚔️ Skirmisher, 🛡️ Juggernaut, 🥷 Ambusher, 🔥 Fire Support. Units with no listed role fall back to a weight-class icon.</li></ul>
   </div>
