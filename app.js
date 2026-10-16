@@ -770,7 +770,7 @@ function seedChoiceDlg(){return new Promise(res=>{
 const ov=document.getElementById('dlgOverlay');if(!ov)return res(null);
 const T=document.getElementById('dlgTitle'),M=document.getElementById('dlgMsg'),ok=document.getElementById('dlgOk'),cx=document.getElementById('dlgCancel');
 T.textContent='Load Demo Campaign';
-M.innerHTML=`<p class="hint">The demo brings one game date ('Shop Night — demo') and the 'Iron Jackals' brigade (Marauder + Hunchback, two pilots).</p><label style="display:block;margin:6px 0"><input type="radio" name="seedMode" value="append" checked> Append — add the demo alongside your current dates and brigades (nothing is removed)</label><label style="display:block;margin:6px 0"><input type="radio" name="seedMode" value="replace"> Replace — discard current dates and brigades, keep only the demo (asks for confirmation)</label>`;
+M.innerHTML=`<p class="hint">The demo brings one game date ('Shop Night — demo') and three brigades (Iron Jackals, Crimson Lances, Rust Hounds - 4 mechs (6,000-9,000 BV) and 8 pilots each, 40M C-Bills per brigade).</p><label style="display:block;margin:6px 0"><input type="radio" name="seedMode" value="append" checked> Append — add the demo alongside your current dates and brigades (nothing is removed)</label><label style="display:block;margin:6px 0"><input type="radio" name="seedMode" value="replace"> Replace — discard current dates and brigades, keep only the demo (asks for confirmation)</label>`;
 ok.textContent='Load';
 ov.hidden=false;ok.focus();
 const done=v=>{ov.hidden=true;ok.onclick=null;cx.onclick=null;ov.onclick=null;document.removeEventListener('keydown',esc);ok.textContent='Confirm';T.textContent='Confirm';M.textContent='';res(v)};
@@ -780,14 +780,17 @@ cx.onclick=()=>done(null);
 ov.onclick=e=>{if(e.target===ov)done(null)};
 document.addEventListener('keydown',esc)})}
 document.getElementById('seedBtn').onclick=async()=>{const mode=await seedChoiceDlg();if(!mode)return;
-const pick=n=>{const m=MECHS.find(v=>v.n.toLowerCase().includes(n.toLowerCase()))||MECHS[0];const {canon,...rest}=m;return {id:uid(),...rest}};
+const demoPool=[...MECHS.filter(m=>+m.bv>=1500&&+m.bv<=2250)].sort((a,b)=>a.n.localeCompare(b.n));
+const demoPick=nm=>{const m=MECHS.find(v=>v.n===nm)||MECHS[0];const {canon,...rest}=m;return {id:uid(),...rest}};
+const demoMech=k=>demoPick(demoPool[Math.floor(k*demoPool.length/12)].n);
 const demoDate=()=>({id:uid(),date:new Date().toISOString().slice(0,10),note:'Shop Night — demo',status:'open',locked:false,mode:S.mode||'TW'});
-const demoBrigade=()=>{const b={id:uid(),name:'Iron Jackals',employer:'Federated Suns',ledger:newLedger(),log:newLog(),retired:false,inventory:[pick('Marauder MAD-3R'),pick('Hunchback HBK-4G')],roster:[{id:uid(),n:'Vera "Hammer" Kao',g:3,p:4,xp:1},{id:uid(),n:'Dax Renn',g:4,p:5,xp:1}],active:[],dropship:true,memorial:[]};
-b.active=[{mech:b.inventory[0].id,pilot:b.roster[0].id,on:true},{mech:b.inventory[1].id,pilot:b.roster[1].id,on:true}];blog(b,`Mechwarrior Training: '+1 XP for ${b.roster.length} starting pilot(s)'`);return b};
+const demoDefs=[{name:'Iron Jackals',employer:'Federated Suns',pilots:['Vera "Hammer" Kao','Dax Renn','Mira "Frost" Solen','Theo "Anvil" Marsh','Jun "Spark" Park','Ada "Longshot" Reyes','Cole "Boulder" Vance','Nia "Wisp" Okafor']},{name:'Crimson Lances',employer:'Lyran Commonwealth',pilots:['Petra "Redline" Voss','Emil "Tinker" Brandt','Sofia "Duchess" Marlowe','Rurik "Bear" Sten','Ilsa "Needle" Kraus','Otto "Rampart" Feld','Lena "Comet" Vane','Mikkel "Shrike" Sorensen']},{name:'Rust Hounds',employer:'Independent',pilots:['Jax "Rusty" Corbin','Sal "Grease" Moretti','Bea "Hex" Calloway','Rocco "Mauler" Dane','Tess "Fable" Quinn','Hank "Silo" Mercer','Opal "Vex" Drummond','Silas "Grim" Hatch']}];
+const demoBrigade=(def,mi)=>{const b={id:uid(),name:def.name,employer:def.employer,ledger:newLedger(),log:newLog(),retired:false,inventory:[0,1,2,3].map(j=>demoMech(mi*4+j)),roster:def.pilots.map(n=>({id:uid(),n,g:4,p:5,xp:1})),active:[],dropship:true,memorial:[]};
+b.active=b.inventory.map((m,i)=>({mech:m.id,pilot:b.roster[i].id,on:true}));blog(b,`Mechwarrior Training: '+1 XP for ${b.roster.length} starting pilot(s)'`);return b};
 if(mode==='replace'){if(!await confirmDlg('Replace ALL current dates and brigades with the demo campaign? This cannot be undone.','Replace'))return;
-S.dates=[demoDate()];S.brigades=[demoBrigade()];save();renderAll();toast('Demo campaign loaded (replaced)')}
-else{const b=demoBrigade();let nm=b.name,k=2;while(S.brigades.some(x=>x.name===nm))nm=`${b.name} (${k++})`;b.name=nm;
-S.dates.push(demoDate());S.brigades.push(b);save();renderAll();toast(`Demo appended — '${b.name}' added`)}};
+S.dates=[demoDate()];S.brigades=[0,1,2].map(i=>demoBrigade(demoDefs[i],i));save();renderAll();toast('Demo campaign loaded (replaced)')}
+else{const bs=[0,1,2].map(i=>demoBrigade(demoDefs[i],i));bs.forEach(b=>{let nm=b.name,k=2;while(S.brigades.some(x=>x.name===nm))nm=`${b.name} (${k++})`;b.name=nm;S.brigades.push(b)});
+S.dates.push(demoDate());save();renderAll();toast(`Demo appended - 3 brigades added`)}};
 document.getElementById('wipeBtn').onclick=async()=>{if(await confirmDlg('Wipe all data? This cannot be undone.','Wipe all')){S={era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[],outcomes:[],selScenario:null,activePredrop:null};save();renderAll()}};
 document.getElementById('jsonBtn').onclick=()=>{const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bt-backup.json';a.click()};
 document.getElementById('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{S=JSON.parse(r.result);save();renderAll()};r.readAsText(f)};
