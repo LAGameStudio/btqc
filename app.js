@@ -114,6 +114,17 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelect
 // MODE (era lives on the Game Series card)
 function setMode(m){S.mode=m;save();document.getElementById('modeTW').classList.toggle('active',m==='TW');document.getElementById('modeAS').classList.toggle('active',m==='AS');renderAll()}
 document.getElementById('modeTW').onclick=()=>setMode('TW');document.getElementById('modeAS').onclick=()=>setMode('AS');setMode(S.mode||'TW');
+// FULLSCREEN (mobile browsers): icon in the top bar; landscape lock by default, toggleable while fullscreen
+let rotLock=true;
+const fsBtn=document.getElementById('fsBtn'),rotBtn=document.getElementById('rotBtn');
+const fsOK=()=>!!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen);
+if(fsBtn&&fsOK()&&matchMedia('(pointer:coarse)').matches)fsBtn.classList.add('display-ok');
+function fsRefresh(){const fs=!!(document.fullscreenElement||document.webkitFullscreenElement);if(fsBtn){fsBtn.textContent=fs?'⛶✓':'⛶';fsBtn.classList.toggle('on',fs);fsBtn.title=fs?'Exit fullscreen':'Enter fullscreen'}if(rotBtn){rotBtn.hidden=!fs;rotBtn.textContent=rotLock?'🔒':'🔓';rotBtn.classList.toggle('on',rotLock);rotBtn.title=rotLock?'Orientation lock: on (landscape) — tap to unlock':'Orientation lock: off — tap to lock landscape'}};
+async function fsEnter(){try{const de=document.documentElement;if(de.requestFullscreen)await de.requestFullscreen();else if(de.webkitRequestFullscreen)de.webkitRequestFullscreen();rotLock=true;try{if(screen.orientation&&screen.orientation.lock)await screen.orientation.lock('landscape')}catch(_e){}fsRefresh()}catch(_e){toast('Fullscreen not available in this browser')}}
+async function fsExit(){try{if(document.exitFullscreen&&document.fullscreenElement)await document.exitFullscreen();else if(document.webkitExitFullscreen&&document.webkitFullscreenElement)document.webkitExitFullscreen()}catch(_e){}try{if(screen.orientation&&screen.orientation.unlock)screen.orientation.unlock()}catch(_e){}fsRefresh()}
+if(fsBtn)fsBtn.onclick=()=>{(document.fullscreenElement||document.webkitFullscreenElement)?fsExit():fsEnter()};
+if(rotBtn)rotBtn.onclick=async()=>{rotLock=!rotLock;try{if(rotLock){if(screen.orientation&&screen.orientation.lock)await screen.orientation.lock('landscape')}else if(screen.orientation&&screen.orientation.unlock)screen.orientation.unlock()}catch(_e){toast('Orientation lock not available in this browser')}fsRefresh()};
+document.addEventListener('fullscreenchange',fsRefresh);document.addEventListener('webkitfullscreenchange',fsRefresh);fsRefresh();
 /* Header uplink revision always matches this script's working revision (?v=N) */
 try{const _av=(document.querySelector('script[src*="app.js"]')||{src:''}).src.match(/[?&]v=(\d+)/);const _bp=document.querySelector('.brand p');if(_av&&_bp)_bp.textContent='Scenario Tool // MercroSoft Uplink v3.067.'+_av[1]}catch(_e){}
 // SCHEDULE
