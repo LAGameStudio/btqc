@@ -427,16 +427,37 @@ pdGroups.forEach(g=>{rows+=`<tr><td colspan=8><b>${g.name}</b>${g.role?` <span c
 let sub=0,n=0;
 if(g.b)(g.b.active||[]).filter(a=>a.on).forEach(a=>{const r=pdFin(g.b,a);if(!r)return;n++;sub+=r.fin;rows+=pdRow(g.b,r)});
 if(!n)rows+=`<tr><td colspan=8 class="hint">No deployed mechs — load dropship slots on the Brigades tab and tick Deploy.</td></tr>`;
-rows+=`<tr><td colspan=7 style="text-align:right"><b>Subtotal — ${g.name}</b></td><td><b>${sub.toLocaleString()}</b></td></tr>`;grand+=sub;pdTotals.push({name:g.name,role:g.role||'',sub,n})});
+rows+=`<tr><td colspan=7 style="text-align:right"><b>Subtotal — ${g.name}</b></td><td><b>${sub.toLocaleString()}</b></td></tr>`;grand+=sub;pdTotals.push({name:g.name,role:g.role||'',sub,n,b:g.b})});
 if(!pdGroups.length)rows='<tr><td colspan=8 class="hint">No participants — add brigades under Sides & Participation in Contract Review.</td></tr>';
 const assetBV=S.mode==='TW'?1200:28;
 const unit=M==='TW'?'BV':'PV';
+function pdUpFin(bv,g,p){const adj=adjBV(bv,g,p);return adj+Math.round(adj*0.08)}
+function pdUpskill(b,sub,target){const slots=(b.active||[]).filter(a=>a.on).map(a=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);return (m&&p)?{n:p.n,bv:m.bv,g:+p.g,p:+p.p}:null}).filter(Boolean);
+if(!slots.length)return null;
+let cur=sub;const steps=[];let guard=0;
+while(cur<target&&guard++<60){let best=null;
+for(const sl of slots){if(sl.g>2){const d=pdUpFin(sl.bv,sl.g-1,sl.p)-pdUpFin(sl.bv,sl.g,sl.p);if(d>0&&(!best||d>best.gain))best={sl,kind:'G',from:sl.g,gain:d}}
+if(sl.p>2){const d=pdUpFin(sl.bv,sl.g,sl.p-1)-pdUpFin(sl.bv,sl.g,sl.p);if(d>0&&(!best||d>best.gain))best={sl,kind:'P',from:sl.p,gain:d}}}
+if(!best)break;
+if(best.kind==='G')best.sl.g--;else best.sl.p--;
+cur+=best.gain;steps.push({n:best.sl.n,kind:best.kind,from:best.from,to:best.kind==='G'?best.sl.g:best.sl.p,gain:best.gain})}
+return {slots,steps,newSub:cur,reached:cur>=target}}
+function pdUpRec(t,mx,un,short,pct){
+if(short===0)return 'Pacesetter — others scale to this force.';
+if(t.n===0)return `No mechs deployed — field ~${mx.toLocaleString()} ${un} to match, or sit this brigade out.`;
+if(M!=='TW')return `Add +${short.toLocaleString()} ${un} (${pct}% of par) — an extra unit or a GM edge (initiative, positioning, extra assets) worth ~${short.toLocaleString()} ${un}. <span class="hint">Temp upskills lower PV under the rough skill formula, so they won't close this gap.</span>`;
+const target=mx-500;
+if(t.sub>=target)return `Within 500 ${un} of the pacesetter — no upskill needed (full parity would take +${short.toLocaleString()}).`;
+const pl=t.b?pdUpskill(t.b,t.sub,target):null;
+if(!pl)return `Add +${short.toLocaleString()} ${un} (${pct}% of par) — an extra unit or a GM edge worth ~${short.toLocaleString()} ${un}.`;
+if(pl.reached)return `Temp upskill, roster unchanged: ${pl.steps.map(s=>s.n+' '+s.kind+s.from+'\u2192'+s.to+' (+'+s.gain.toLocaleString()+')').join(', ')} \u2192 <b>${pl.newSub.toLocaleString()} ${un}</b> (within ${(mx-pl.newSub).toLocaleString()} of ${mx.toLocaleString()}).`;
+return `Even maxed (${pl.slots.map(s=>s.n+'\u2192'+s.g+'/'+s.p).join(', ')}): +${(pl.newSub-t.sub).toLocaleString()} \u2192 ${pl.newSub.toLocaleString()} (still ${(target-pl.newSub).toLocaleString()} short of within-500). Field an extra unit or GM edge worth ~${(target-pl.newSub).toLocaleString()} ${un}.`}
 let eqH='';
 if(pdTotals.length<2)eqH=`<h4>${unit} Equalizer</h4><p class="hint">Need at least two brigades on this contract to compare balancing — add brigades under Sides & Participation in Contract Review.</p>`;
 else{const mx=Math.max(...pdTotals.map(t=>t.sub));const mn=Math.min(...pdTotals.map(t=>t.sub));
 if(mx<=0)eqH=`<h4>${unit} Equalizer</h4><p class="hint">No deployed forces yet — load dropship slots on the Brigades tab and tick Deploy, then return for balancing suggestions.</p>`;
 else if(mn===mx)eqH=`<h4>${unit} Equalizer</h4><p>✅ Forces are balanced at <b>${mx.toLocaleString()} ${unit}</b> per brigade — no adjustment needed.</p>`;
-else{eqH=`<h4>${unit} Equalizer — bring everyone to ${mx.toLocaleString()} ${unit}</h4><p class="hint">Spread: ${mn.toLocaleString()} – ${mx.toLocaleString()} ${unit} (gap ${(mx-mn).toLocaleString()} ${unit}). Suggestions close each brigade to the strongest force — add units, upgrade pilots, or grant a GM edge of matching value.</p><table><tr><th>Brigade</th><th>Deployed</th><th>Share</th><th>Shortfall</th><th>Recommendation</th></tr>${pdTotals.map(t=>{const short=mx-t.sub;const pct=Math.round(t.sub/mx*100);const rec=short===0?'Pacesetter — others scale to this force.':(t.n===0?`No mechs deployed — field ~${mx.toLocaleString()} ${unit} to match, or sit this brigade out.`:`Add +${short.toLocaleString()} ${unit} (${pct}% of par) — an extra unit, pilot skill upgrades, or a GM edge (initiative, positioning, extra assets) worth ~${short.toLocaleString()} ${unit}.`);return `<tr><td>${t.name}${t.role?` <span class="pill">${t.role}</span>`:''}</td><td>${t.sub.toLocaleString()}</td><td>${pct}%</td><td>${short===0?'—':'+'+short.toLocaleString()}</td><td>${rec}</td></tr>`}).join('')}</table>`}}
+else{eqH=`<h4>${unit} Equalizer — bring everyone to ${mx.toLocaleString()} ${unit}</h4><p class="hint">Spread: ${mn.toLocaleString()} – ${mx.toLocaleString()} ${unit} (gap ${(mx-mn).toLocaleString()} ${unit}). Goal: every brigade within 500 ${unit} of the pacesetter (${mx.toLocaleString()} ${unit}). Temp-upskill plans name the pilots to buff for this game only (roster unchanged); larger gaps need extra units or a GM edge.</p><table><tr><th>Brigade</th><th>Deployed</th><th>Share</th><th>Shortfall</th><th>Recommendation</th></tr>${pdTotals.map(t=>{const short=mx-t.sub;const pct=Math.round(t.sub/mx*100);return `<tr><td>${t.name}${t.role?` <span class="pill">${t.role}</span>`:''}</td><td>${t.sub.toLocaleString()}</td><td>${pct}%</td><td>${short===0?'—':'+'+short.toLocaleString()}</td><td>${pdUpRec(t,mx,unit,short,pct)}</td></tr>`}).join('')}</table>`}}
 el.innerHTML=`<h3>${s.title} — ${M==='TW'?'Total Warfare (BV)':'Alpha Strike (PV)'}${DM!==M?` <span class="hint">(date recorded as ${DM==='TW'?'Total Warfare':'Alpha Strike'})</span>`:''}</h3>
 <p><b>Setup:</b> Map ${s.map.size} at ${s.map.loc} (${s.map.ter}). ${s.map.cond}. OpFor: ${s.opfor}. GM assets: Sensor post (BV ${assetBV}), convoy trucks x2 — place per objectives before first turn.</p>
 <table><tr><th>Brigade</th><th></th><th>Mech</th><th>Pilot (recorded)</th><th>Base</th><th>Skill mod</th><th>Scenario mod</th><th>Deployed (${M==='TW'?'BV':'PV'})</th></tr>${rows}</table>
