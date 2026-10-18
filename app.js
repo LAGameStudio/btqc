@@ -505,7 +505,7 @@ ${eqH}
 ${sideH?'<hr class="secdiv">':''}${sideH}
 ${gbMain?`<p><b>Adjusted force total: ${sideGroups.reduce((x,g)=>x+(g.eq||g.tot),0).toLocaleString()} ${unit}</b> (battlefield total if every GM action above is applied)</p>`:''}
 <hr class="secdiv">
-<h4>Payouts</h4><table><tr><th>Objective</th><th>Enabled</th><th>By</th><th>C-Bills</th></tr>${s.objectives.map(o=>`<tr><td>${o.text}</td><td>${o.enabled?'yes':'no'}</td><td>${(S.brigades.find(b=>b.id===o.by)||{}).name||'—'}</td><td>${o.payout.toLocaleString()}</td></tr>`).join('')}${stakeH}</table>`;
+<h4>Payouts</h4><table><tr><th>Objective</th><th>By</th><th>C-Bills</th></tr>${s.objectives.filter(o=>o.enabled).map(o=>`<tr><td>${o.text}</td><td>${(S.brigades.find(b=>b.id===o.by)||{}).name||'—'}</td><td>${o.payout.toLocaleString()}</td></tr>`).join('')}${stakeH}</table>`;
 const gbm=el.querySelector('[data-gbmode]');if(gbm)gbm.onchange=()=>{S.gbMode=gbm.value;save();renderPredrop()};
 const gbt=el.querySelector('[data-gbtol]');if(gbt){gbt.oninput=()=>{S.gbTol=+gbt.value};gbt.onchange=()=>{S.gbTol=+gbt.value;save();renderPredrop()}}
 const gbnt=el.querySelector('[data-gbnotrim]');if(gbnt)gbnt.onchange=()=>{S.gbNoTrim=gbnt.checked;if(S.gbMode==='notrim')S.gbMode='all';save();renderPredrop()};
