@@ -475,7 +475,8 @@ el.innerHTML=`<h3>${s.title} — ${M==='TW'?'Total Warfare (BV)':'Alpha Strike (
 <table><tr><th>Brigade</th><th></th><th>Mech</th><th>Pilot (recorded)</th><th>Base</th><th>Skill mod</th><th>Scenario mod</th><th>Deployed (${M==='TW'?'BV':'PV'})</th></tr>${rows}</table>
 <p><b>Force total: ${grand.toLocaleString()} ${M==='TW'?'BV':'PV'}</b> (base + pilot skill + transparent OpFor/condition bump). Base skills unchanged on roster — modifiers apply to this game only.</p>
 ${eqH}
-${sideH}
+${sideH?'<hr>':''}${sideH}
+<hr>
 <h4>Payouts</h4><table><tr><th>Objective</th><th>Enabled</th><th>By</th><th>C-Bills</th></tr>${s.objectives.map(o=>`<tr><td>${o.text}</td><td>${o.enabled?'yes':'no'}</td><td>${(S.brigades.find(b=>b.id===o.by)||{}).name||'—'}</td><td>${o.payout.toLocaleString()}</td></tr>`).join('')}${stakeH}</table>`}
 // OUTCOMES — GM records the result of a game per scenario+brigade.
 // Commit applies: awarded payouts & scrap & minus repair to brigade funds,
