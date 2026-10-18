@@ -422,18 +422,26 @@ return {m,p,base,opBonus,fin:adj+opBonus}}
 function pdRow(b,r){return `<tr><td>${b.name}</td><td class="mech-ico">${r.m.ico}</td><td>${r.m.n}</td><td>${r.p?r.p.n+' '+r.p.g+'/'+r.p.p:'— (4/5)'}</td><td>${r.base.toLocaleString()}</td><td>${M==='TW'?'x'+(r.p?bvMult(r.p.g,r.p.p):1):(r.p?'PV skill '+pvSkill(r.p.g,r.p.p):'PV 18')}</td><td>+${r.opBonus} OpFor/terrain</td><td><b>${r.fin.toLocaleString()}</b></td></tr>`}
 const pdSides=(s.sides||[]).filter(sd=>sd&&sd.brigadeId);
 const pdGroups=pdSides.length?pdSides.map(sd=>({name:((S.brigades.find(b=>b.id===sd.brigadeId)||{}).name||'— (unavailable)'),role:sd.role||'',b:S.brigades.find(b=>b.id===sd.brigadeId)})):liveBrigs().filter(b=>(b.active||[]).some(a=>a.on&&a.mech)).map(b=>({name:b.name,role:'',b}));
-let rows='',grand=0;
+let rows='',grand=0;const pdTotals=[];
 pdGroups.forEach(g=>{rows+=`<tr><td colspan=8><b>${g.name}</b>${g.role?` <span class="pill">${g.role}</span>`:''}</td></tr>`;
 let sub=0,n=0;
 if(g.b)(g.b.active||[]).filter(a=>a.on).forEach(a=>{const r=pdFin(g.b,a);if(!r)return;n++;sub+=r.fin;rows+=pdRow(g.b,r)});
 if(!n)rows+=`<tr><td colspan=8 class="hint">No deployed mechs — load dropship slots on the Brigades tab and tick Deploy.</td></tr>`;
-rows+=`<tr><td colspan=7 style="text-align:right"><b>Subtotal — ${g.name}</b></td><td><b>${sub.toLocaleString()}</b></td></tr>`;grand+=sub});
+rows+=`<tr><td colspan=7 style="text-align:right"><b>Subtotal — ${g.name}</b></td><td><b>${sub.toLocaleString()}</b></td></tr>`;grand+=sub;pdTotals.push({name:g.name,role:g.role||'',sub,n})});
 if(!pdGroups.length)rows='<tr><td colspan=8 class="hint">No participants — add brigades under Sides & Participation in Contract Review.</td></tr>';
 const assetBV=S.mode==='TW'?1200:28;
+const unit=M==='TW'?'BV':'PV';
+let eqH='';
+if(pdTotals.length<2)eqH=`<h4>${unit} Equalizer</h4><p class="hint">Need at least two brigades on this contract to compare balancing — add brigades under Sides & Participation in Contract Review.</p>`;
+else{const mx=Math.max(...pdTotals.map(t=>t.sub));const mn=Math.min(...pdTotals.map(t=>t.sub));
+if(mx<=0)eqH=`<h4>${unit} Equalizer</h4><p class="hint">No deployed forces yet — load dropship slots on the Brigades tab and tick Deploy, then return for balancing suggestions.</p>`;
+else if(mn===mx)eqH=`<h4>${unit} Equalizer</h4><p>✅ Forces are balanced at <b>${mx.toLocaleString()} ${unit}</b> per brigade — no adjustment needed.</p>`;
+else{eqH=`<h4>${unit} Equalizer — bring everyone to ${mx.toLocaleString()} ${unit}</h4><p class="hint">Spread: ${mn.toLocaleString()} – ${mx.toLocaleString()} ${unit} (gap ${(mx-mn).toLocaleString()} ${unit}). Suggestions close each brigade to the strongest force — add units, upgrade pilots, or grant a GM edge of matching value.</p><table><tr><th>Brigade</th><th>Deployed</th><th>Share</th><th>Shortfall</th><th>Recommendation</th></tr>${pdTotals.map(t=>{const short=mx-t.sub;const pct=Math.round(t.sub/mx*100);const rec=short===0?'Pacesetter — others scale to this force.':(t.n===0?`No mechs deployed — field ~${mx.toLocaleString()} ${unit} to match, or sit this brigade out.`:`Add +${short.toLocaleString()} ${unit} (${pct}% of par) — an extra unit, pilot skill upgrades, or a GM edge (initiative, positioning, extra assets) worth ~${short.toLocaleString()} ${unit}.`);return `<tr><td>${t.name}${t.role?` <span class="pill">${t.role}</span>`:''}</td><td>${t.sub.toLocaleString()}</td><td>${pct}%</td><td>${short===0?'—':'+'+short.toLocaleString()}</td><td>${rec}</td></tr>`}).join('')}</table>`}}
 el.innerHTML=`<h3>${s.title} — ${M==='TW'?'Total Warfare (BV)':'Alpha Strike (PV)'}${DM!==M?` <span class="hint">(date recorded as ${DM==='TW'?'Total Warfare':'Alpha Strike'})</span>`:''}</h3>
 <p><b>Setup:</b> Map ${s.map.size} at ${s.map.loc} (${s.map.ter}). ${s.map.cond}. OpFor: ${s.opfor}. GM assets: Sensor post (BV ${assetBV}), convoy trucks x2 — place per objectives before first turn.</p>
 <table><tr><th>Brigade</th><th></th><th>Mech</th><th>Pilot (recorded)</th><th>Base</th><th>Skill mod</th><th>Scenario mod</th><th>Deployed (${M==='TW'?'BV':'PV'})</th></tr>${rows}</table>
 <p><b>Force total: ${grand.toLocaleString()} ${M==='TW'?'BV':'PV'}</b> (base + pilot skill + transparent OpFor/condition bump). Base skills unchanged on roster — modifiers apply to this game only.</p>
+${eqH}
 <h4>Payouts</h4><table><tr><th>Objective</th><th>Enabled</th><th>By</th><th>C-Bills</th></tr>${s.objectives.map(o=>`<tr><td>${o.text}</td><td>${o.enabled?'yes':'no'}</td><td>${(S.brigades.find(b=>b.id===o.by)||{}).name||'—'}</td><td>${o.payout.toLocaleString()}</td></tr>`).join('')}</table>`}
 // OUTCOMES — GM records the result of a game per scenario+brigade.
 // Commit applies: awarded payouts & scrap & minus repair to brigade funds,
