@@ -434,7 +434,7 @@ if(!pdGroups.length)rows='<tr><td colspan=8 class="hint">No participants — add
 const assetBV=S.mode==='TW'?1200:28;
 const unit=M==='TW'?'BV':'PV';
 function pdUpFin(bv,g,p){const adj=adjBV(bv,g,p);return adj+Math.round(adj*0.08)}
-function gbTol(){return Math.max(1,Math.min(10,Math.round(+S.gbTol||5)))}
+function gbTol(){return Math.max(1,Math.min(10,Math.round(+S.gbTol||2)))}
 function gbTolVal(mx){const t=gbTol();return Math.max(1,mx-Math.round(mx/(1+t/100)))}
 function pdSideUpskill(g,target){const slots=[];(g.brigs||[]).forEach(t=>{const b=t.b;if(!b)return;(b.active||[]).filter(a=>a.on).forEach(a=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);if(m&&p)slots.push({b:t.name,n:p.n,bv:m.bv,g:+p.g,p:+p.p})})});
 if(!slots.length)return null;
