@@ -72,7 +72,7 @@ function scenMode(s){return s?dateMode(s.gameDateId):(S.mode||'TW')}
 let calView={y:null,m:null};
 // Speech + outcome draft state (same reason: the initial setMode()->renderAll() touches these)
 let sayId=null;
-let OD=null,editingOutcomeId=null;
+let OD=null,editingOutcomeId=null,ocSkipSync=false;
 let scenTab='select'; // scenarios Selection/Review tab
 let dateTab='future'; // Game Dates list tab: future (>= today) | past (< today)
 function selScen(){return S.scenarios.find(x=>x.id===S.selScenario&&x.status!=='discarded')||null}
@@ -580,7 +580,7 @@ OD=ocNew();editingOutcomeId=null;save();renderAll();
 toast(`Outcome committed to '${bg.name}'${dead?` — ${dead} pilot(s) KIA`:''}${xpAwarded?` — +1 XP to ${xpAwarded} survivor(s)`:''} — see brigade accounting`)}
 function ocMechHits(){const q=(OD._msearch||'').toLowerCase().trim();return (q?MECHS.filter(m=>m.n.toLowerCase().includes(q)):MECHS).slice(0,100)}
 function renderOutcomes(){if(!Array.isArray(S.outcomes))S.outcomes=[];
-ocSync();
+if(ocSkipSync)ocSkipSync=false;else ocSync();
 if(!OD)OD=ocNew();
 const el=document.getElementById('outcomeForm'),list=document.getElementById('outcomeList');if(!el)return;
 syncOutcomeDraft();
@@ -637,7 +637,7 @@ const dead=o.rows.filter(r=>r.dead).map(r=>r.name).join(', ');
 return `<div class="date-row"><b>${o.scenarioTitle||'?'}</b> <span class="hint">${o.dateStr||''} → ${o.brigadeName||''}</span> ${o.failed?'<span class="pill cancel">FAILED</span>':'<span class="pill contemp">COMPLETE</span>'}
 <div class="hint">Payouts +${pay.toLocaleString()} C · Salvage: ${(o.salvage||[]).map(sv=>{const bn=sv.to?((S.brigades.find(b=>b.id===sv.to)||{name:'?'}).name):'unallocated';return `${sv.name} (${(+sv.cb||0).toLocaleString()} C → ${bn})${sv.rec?' · Recovered':''}`}).join(', ')||'none'}${dead?` · ☠ ${dead}`:''}</div>
 <div class="row"><button class="btn small" data-ocedit="${o.id}">Edit</button><button class="btn small" data-ocdel="${o.id}">Delete</button></div></div>`}).join(''):'<p class="hint">No committed outcomes yet.</p>';
-list.querySelectorAll('[data-ocedit]').forEach(b=>b.onclick=()=>{const o=S.outcomes.find(x=>x.id===b.dataset.ocedit);if(!o)return;OD=JSON.parse(JSON.stringify(o));OD.payScen=OD.scenarioId;OD.revise=false;editingOutcomeId=o.id;save();renderOutcomes();toast(`Editing outcome for '${o.scenarioTitle}' — Commit saves, reversing the old application first`)});
+list.querySelectorAll('[data-ocedit]').forEach(b=>b.onclick=()=>{const o=S.outcomes.find(x=>x.id===b.dataset.ocedit);if(!o)return;OD=JSON.parse(JSON.stringify(o));OD.payScen=OD.scenarioId;OD.revise=false;editingOutcomeId=o.id;ocSkipSync=true;save();renderOutcomes();toast(`Editing outcome for '${o.scenarioTitle}' — Commit saves, reversing the old application first`)});
 list.querySelectorAll('[data-ocdel]').forEach(b=>b.onclick=async()=>{const o=S.outcomes.find(x=>x.id===b.dataset.ocdel);if(!o)return;if(!await confirmDlg(`Delete the committed outcome '${o.scenarioTitle}' for '${o.brigadeName}'? Funds, salvage and pilot changes will be reversed.`,'Delete'))return;applyOutcome(o,-1);clog(S.scenarios.find(x=>x.id===o.scenarioId),`Outcome for '${o.brigadeName}' deleted — application reversed`);S.outcomes=S.outcomes.filter(x=>x.id!==o.id);if(editingOutcomeId===o.id){editingOutcomeId=null;OD=ocNew()}save();renderAll();toast('Outcome deleted and reversed')})}
 function memSection(b){const mem=b.memorial||[];
 return mem.length?`<table><tr><th>🕯 Pilot</th><th>G/P</th><th>Mech</th><th>Fell at</th></tr>${mem.map(m=>`<tr><td>${m.name}</td><td>${m.g}/${m.p}</td><td>${m.mech||'—'}</td><td>${m.title||''} <span class="hint">${m.date||''}</span></td></tr>`).join('')}</table>`:'<p class="hint">🕯 No fallen pilots yet.</p>'}
