@@ -42,7 +42,7 @@ const MISSIONS=[
 function uid(){return Math.random().toString(36).slice(2,9)}
 function load(){try{return JSON.parse(localStorage.getItem(LS))||null}catch(e){return null}}
 function save(){localStorage.setItem(LS,JSON.stringify(S));}
-let S=load()||{era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[],outcomes:[],selScenario:null,activePredrop:null};
+let S=load()||{era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[],outcomes:[],selScenario:null,activePredrop:null,predropDateId:null};
 if(!Array.isArray(S.outcomes))S.outcomes=[];
 S.dates.forEach(g=>{if(g.mode!=='TW'&&g.mode!=='AS')g.mode=S.mode||'TW'});
 S.scenarios.forEach(migrateScenario);
@@ -57,8 +57,8 @@ if(!b.importedFrom){const m=(b.log||[]).map(e=>e.msg||'').join('\n').match(/Impo
 delete b.cbills});
 S.brigades.forEach(b=>(b.inventory||[]).forEach(m=>{if(m.tons==null||m.tons===''){const cat=MECHS.find(v=>v.n===m.n);if(cat&&cat.tons!=null)m.tons=cat.tons}}));
 if(S.brigades.some(b=>b.retired))stripRetiredFromScenarios('Retired brigade removed from this contract');
-function snapOf(S){return JSON.parse(JSON.stringify({era:S.era,dates:S.dates,brigades:S.brigades,scenarios:S.scenarios,outcomes:S.outcomes,selScenario:S.selScenario,activePredrop:S.activePredrop}))}
-function applySnap(s){S.era=s.era||ERAS[2];S.dates=s.dates||[];S.brigades=s.brigades||[];S.scenarios=s.scenarios||[];S.outcomes=s.outcomes||[];S.selScenario=s.selScenario||null;S.activePredrop=s.activePredrop||null}
+function snapOf(S){return JSON.parse(JSON.stringify({era:S.era,dates:S.dates,brigades:S.brigades,scenarios:S.scenarios,outcomes:S.outcomes,selScenario:S.selScenario,activePredrop:S.activePredrop,predropDateId:S.predropDateId||null}))}
+function applySnap(s){S.era=s.era||ERAS[2];S.dates=s.dates||[];S.brigades=s.brigades||[];S.scenarios=s.scenarios||[];S.outcomes=s.outcomes||[];S.selScenario=s.selScenario||null;S.activePredrop=s.activePredrop||null;S.predropDateId=s.predropDateId||null}
 function curSeries(){if(!Array.isArray(S.series)||!S.series.length)return null;return S.series.find(x=>x.id===S.activeSeriesId)||S.series[0]}
 function switchSeries(id){if(id===S.activeSeriesId)return;const cur=curSeries();if(cur)cur.snap=snapOf(S);const t=S.series.find(x=>x.id===id);if(!t||!t.snap)return;applySnap(JSON.parse(JSON.stringify(t.snap)));stripRetiredFromScenarios('Retired brigade removed from this contract');S.activeSeriesId=id;OD=null;editingOutcomeId=null;calView={y:null,m:null};save();renderAll();toast(`Switched to series '${t.name}' — full dataset swapped`)}
 if(!Array.isArray(S.series)||!S.series.length){S.series=[{id:uid(),name:'Main Campaign',enemies:[],snap:snapOf(S)}];S.activeSeriesId=S.series[0].id}
@@ -384,7 +384,7 @@ if(cands.length===1)gid=cands[0].id;
 else if(cands.length>1){const pick=await commitDateDlg(cands);if(!pick)return;gid=pick}
 t.gameDateId=gid;
 S.scenarios.forEach(x=>{if(x.id!==t.id&&x.gameDateId===gid&&x.status==='active')x.status='available'});
-t.status='active';S.activePredrop=t.id;clog(t,`Committed and signed${(S.dates.find(g=>g.id===gid)||{}).date?` for ${(S.dates.find(g=>g.id===gid)||{}).date}`:''}`);
+t.status='active';S.activePredrop=t.id;S.predropDateId=t.gameDateId;clog(t,`Committed and signed${(S.dates.find(g=>g.id===gid)||{}).date?` for ${(S.dates.find(g=>g.id===gid)||{}).date}`:''}`);
 const _gd0=S.dates.find(g=>g.id===gid);if(_gd0&&(_gd0.mode==='TW'||_gd0.mode==='AS')&&_gd0.mode!==S.mode)setMode(_gd0.mode);
 save();renderAll();const _pd=document.querySelector('.tab[data-tab="predrop"]');if(_pd)_pd.click();
 const gd=S.dates.find(g=>g.id===gid);toast(`Committed and signed: '${t.title}'${gd?` for ${gd.date}`:''}`)}
@@ -430,7 +430,8 @@ el.querySelectorAll('[data-spoils]').forEach(c=>c.onchange=()=>{const sc=S.scena
 // PREDROP
 function upcomingPredrop(){const up=upcomingGameId();if(!up)return null;return S.scenarios.find(s=>s.gameDateId===up&&s.status==='active')||null}
 function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-function renderPredropSel(){const s=upcomingPredrop();S.activePredrop=s?s.id:null;syncOutcomeDraft();renderPredropInfo();renderPredrop()}
+function predropDate(){const id=S.predropDateId&&S.dates.some(g=>g.id===S.predropDateId)?S.predropDateId:upcomingGameId();return id||''}
+function renderPredropSel(){const up=predropDate();S.predropDateId=up||null;const cur=S.scenarios.find(x=>x.id===S.activePredrop);if(!cur||cur.gameDateId!==up||cur.status!=='active'){const act=S.scenarios.find(x=>x.gameDateId===up&&x.status==='active');S.activePredrop=act?act.id:null}syncOutcomeDraft();renderPredropInfo();renderPredrop()}
 function MAP_ROLE_C(r){return {Attacker:'#ffb300',Defender:'#00e5ff',Raider:'#ff5a5a'}[r]}
 function h32(s){let h=0;const t=String(s||'');for(let i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))|0;return Math.abs(h)}
 function setupMapEdge(s,role){const m=MISSIONS.find(x=>x.t===s.type);const b=String((m&&m.roles&&m.roles[role])||'').toLowerCase();const has=(...ws)=>ws.some(w=>b.includes(w));
@@ -501,15 +502,18 @@ marks+=`<polygon points="${px},${py-7} ${px+7},${py} ${px},${py+7} ${px-7},${py}
 const svg=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Setup sketch for ${escH(s.title)}"><rect x="1" y="1" width="${W-2}" height="${H-2}" fill="#0d2242" stroke="#00e5ff" stroke-width="2"/>${g}${bands}${marks}${mapEmit(lab,W,H)}<text x="${W-8}" y="20" font-size="12" text-anchor="end" fill="#e8eef7">N ↑</text></svg>`;
 const leg=sides.map(sd=>`<span class="pill" style="border-color:${col(sd.role)}"><span style="display:inline-block;width:10px;height:10px;background:${col(sd.role)};border-radius:2px"></span> ${escH(sd.role)}: ${escH(sd.name)}</span>`).join(' ');
 return `<div class="catbox setupmap"><h5>Sketch — ${escH(s.map.loc||'Unknown')} (${escH(s.map.size||'')} · ${escH(s.map.ter||'')}) <span class="hint">${condIcon(s.map.cond)} ${escH(s.map.cond||'')}</span></h5><div>${svg}</div><div class="row wrap"><span class="hint">⬜ GM asset · ◆ opportunity (owner colors)</span>${leg}</div></div>`}
-function renderPredropInfo(){const el=document.getElementById('predropInfo');if(!el)return;const up=S.dates.find(g=>g.id===upcomingGameId());
+function renderPredropInfo(){const el=document.getElementById('predropInfo');if(!el)return;const up=S.dates.find(g=>g.id===predropDate());
 if(!up){el.innerHTML='<p class="hint">No upcoming game date. Add one on the Schedule tab.</p>';return}
-const glink=`<b>${up.date}</b>${up.note?' — '+escH(up.note):''}`;
-const s=upcomingPredrop();
-if(!s){el.innerHTML=`<p><b>Game Date:</b> ${glink} <span class="pill upcoming">UPCOMING</span></p><p class="hint">No contract signed for the upcoming game yet — visit the Scenarios section to commit and sign one.</p><button class="btn glow" id="predropGoScen">✦ Go to Scenarios</button>`;
-const go=el.querySelector('#predropGoScen');if(go)go.onclick=()=>{const t=document.querySelector('.tab[data-tab="scenarios"]');if(t)t.click();scenTab='select';renderScens()};return}
-el.innerHTML=`<p><b>Game Date:</b> ${glink} <span class="pill upcoming">UPCOMING</span></p><p><b>Signed contract:</b> ${escH(s.title)} <button class="btn small" id="predropReview">Review Contract</button></p>${cardBackstory(s)}`;
-const rv=el.querySelector('#predropReview');if(rv)rv.onclick=()=>{S.selScenario=s.id;scenTab='review';save();const t=document.querySelector('.tab[data-tab="scenarios"]');if(t)t.click();renderScens()}}
-function renderPredrop(){const el=document.getElementById('predropOut');const s=S.scenarios.find(x=>x.id===S.activePredrop);if(!s){el.innerHTML='<p class="hint">No signed contract for the upcoming game.</p>';return}
+const isUp=up.id===upcomingGameId();
+const pdOpts=S.dates.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(g=>{const sg=S.scenarios.some(x=>x.gameDateId===g.id&&x.status==='active');return `<option value=\"${g.id}\"${g.id===up.id?'selected':''}>${g.date}${g.note?' — '+escH(g.note):''}${sg?' — signed':''}</option>`}).join('');
+const pdHead=`<p><b>Game Date:</b> <select id=\"predropDate\">${pdOpts}</select>${isUp?' <span class=\"pill upcoming\">UPCOMING</span>':''}</p>`;
+const s=S.scenarios.find(x=>x.id===S.activePredrop);
+if(!s){el.innerHTML=pdHead+`<p class=\"hint\">No contract signed for ${up.date} yet — visit the Scenarios section to commit and sign one.</p><button class=\"btn glow\" id=\"predropGoScen\">✦ Go to Scenarios</button>`;
+const go=el.querySelector('#predropGoScen');if(go)go.onclick=()=>{const t=document.querySelector('.tab[data-tab=\"scenarios\"]');if(t)t.click();scenTab='select';renderScens()};const pds0=el.querySelector('#predropDate');if(pds0)pds0.onchange=()=>{S.predropDateId=pds0.value;save();renderPredropSel()};return}
+el.innerHTML=pdHead+`<p><b>Signed contract:</b> ${escH(s.title)} <button class=\"btn small\" id=\"predropReview\">Review Contract</button></p>${cardBackstory(s)}`;
+const rv=el.querySelector('#predropReview');if(rv)rv.onclick=()=>{S.selScenario=s.id;scenTab='review';save();const t=document.querySelector('.tab[data-tab=\"scenarios\"]');if(t)t.click();renderScens()}
+const pds=el.querySelector('#predropDate');if(pds)pds.onchange=()=>{S.predropDateId=pds.value;save();renderPredropSel()}}
+function renderPredrop(){const el=document.getElementById('predropOut');const s=S.scenarios.find(x=>x.id===S.activePredrop);if(!s){el.innerHTML='<p class="hint">No signed contract for ' + ((S.dates.find(g=>g.id===S.predropDateId)||{}).date||'this game date') + '.</p>';return}
 const M=S.mode||'TW'; // Pre-Drop is a planning view: it always follows the top-bar mode
 const DM=scenMode(s); // the scenario's recorded date mode (history)
 function pdFin(b,a){const m=b.inventory.find(x=>x.id===a.mech);if(!m)return null;const p=b.roster.find(x=>x.id===a.pilot);
@@ -956,7 +960,7 @@ if(mode==='replace'){if(!await confirmDlg('Replace ALL current dates and brigade
 S.dates=[demoDate()];S.brigades=[0,1,2].map(i=>demoBrigade(demoDefs[i],i));save();renderAll();toast('Demo campaign loaded (replaced)')}
 else{const bs=[0,1,2].map(i=>demoBrigade(demoDefs[i],i));bs.forEach(b=>{let nm=b.name,k=2;while(S.brigades.some(x=>x.name===nm))nm=`${b.name} (${k++})`;b.name=nm;S.brigades.push(b)});
 S.dates.push(demoDate());save();renderAll();toast(`Demo appended - 3 brigades added`)}};
-document.getElementById('wipeBtn').onclick=async()=>{if(await confirmDlg('Wipe all data? This cannot be undone.','Wipe all')){S={era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[],outcomes:[],selScenario:null,activePredrop:null};save();renderAll()}};
+document.getElementById('wipeBtn').onclick=async()=>{if(await confirmDlg('Wipe all data? This cannot be undone.','Wipe all')){S={era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[],outcomes:[],selScenario:null,activePredrop:null,predropDateId:null};save();renderAll()}};
 document.getElementById('jsonBtn').onclick=()=>{const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bt-backup.json';a.click()};
 document.getElementById('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{S=JSON.parse(r.result);save();renderAll()};r.readAsText(f)};
 function renderAll(){save();applyTheme();renderSeries();renderDates();renderBrigs();renderScens();renderOutcomes();refreshImportDates()}
@@ -969,7 +973,7 @@ box.innerHTML=`<div class="row wrap"><label>Series <select id="seriesSel">${S.se
 ${(()=>{const n=(cur.enemies||[]).length;const open=enemiesOpen==null?n>0:enemiesOpen;return `<div class="catbox"><h5><button class="btn small" id="enemyToggle">${open?'▾':'▸'} Common enemies${n?` (${n})`:''}</button>${open?'':`<span class="hint">${n?n+' named — unfold to manage':'hidden — unfold to name a foe'}</span>`}</h5>${open?`<div class="row"><input id="enemyName" placeholder="e.g. Jade Falcon" style="flex:1;min-width:140px"><button class="btn small" id="enemyAdd">+ Enemy</button></div><div class="row">${(cur.enemies||[]).map((e,i)=>`<span class="pill">${e} <button class="btn small" data-enemydel="${i}" title="Remove enemy">x</button></span>`).join('')||'<span class="hint">None — contracts generate without a foe.</span>'}</div>`:''}</div>`})()}`;
 document.getElementById('seriesSel').onchange=e=>switchSeries(e.target.value);
 const se=document.getElementById('seriesEra');se.value=S.era||ERAS[2];se.onchange=()=>{S.era=se.value;save();renderAll()};
-document.getElementById('seriesNew').onclick=()=>{const c=curSeries();if(c)c.snap=snapOf(S);const rec={id:uid(),name:`Series ${S.series.length+1}`,enemies:[],snap:{era:S.era,dates:[],brigades:[],scenarios:[],outcomes:[],selScenario:null,activePredrop:null}};S.series.push(rec);applySnap(JSON.parse(JSON.stringify(rec.snap)));S.activeSeriesId=rec.id;OD=null;editingOutcomeId=null;calView={y:null,m:null};save();renderAll();toast(`New series '${rec.name}' — empty dataset`)};
+document.getElementById('seriesNew').onclick=()=>{const c=curSeries();if(c)c.snap=snapOf(S);const rec={id:uid(),name:`Series ${S.series.length+1}`,enemies:[],snap:{era:S.era,dates:[],brigades:[],scenarios:[],outcomes:[],selScenario:null,activePredrop:null,predropDateId:null}};S.series.push(rec);applySnap(JSON.parse(JSON.stringify(rec.snap)));S.activeSeriesId=rec.id;OD=null;editingOutcomeId=null;calView={y:null,m:null};save();renderAll();toast(`New series '${rec.name}' — empty dataset`)};
 const rn=document.getElementById('seriesRename');if(rn)rn.onclick=()=>{renamingSeries=true;renderSeries();const i=document.getElementById('seriesRenameInput');if(i){i.focus();i.select()}};
 const rs=document.getElementById('seriesRenameSave');if(rs)rs.onclick=()=>{const i=document.getElementById('seriesRenameInput');const v=i&&i.value.trim();if(v)curSeries().name=v;renamingSeries=false;save();renderSeries()};
 const rc=document.getElementById('seriesRenameCancel');if(rc)rc.onclick=()=>{renamingSeries=false;renderSeries()};
