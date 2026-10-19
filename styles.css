@@ -93,3 +93,7 @@ html[data-theme=mono-green] input[type=range]::-webkit-slider-thumb,html[data-th
 html[data-theme=mono-green] input[type=range]::-moz-range-track,html[data-theme=amber] input[type=range]::-moz-range-track{background:var(--bg)}
 html[data-theme=mono-green] input[type=range]::-moz-range-progress,html[data-theme=amber] input[type=range]::-moz-range-progress{background:var(--acc)}
 html[data-theme=mono-green] input[type=range]::-moz-range-thumb,html[data-theme=amber] input[type=range]::-moz-range-thumb{background:var(--acc);border-color:var(--acc)}
+.nwrap{flex:1;display:flex;flex-direction:column;justify-content:center;min-width:120px}
+.nwrap input[type=range]{width:100%}
+.ticks{display:flex;justify-content:space-between;margin:1px 10px 0}
+.ticks i{width:2px;height:6px;background:var(--mut);border-radius:1px;opacity:.85}
