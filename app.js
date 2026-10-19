@@ -407,7 +407,7 @@ ${(()=>{const stray=(s.objectives||[]).filter(o=>!(s.sides||[]).some(x=>x.id===o
 el.querySelectorAll('[data-say]').forEach(b=>b.onclick=()=>sayToggle(b.dataset.say));
 el.querySelectorAll('[data-commit]').forEach(b=>b.onclick=()=>commitSign(b.dataset.commit));
 el.querySelectorAll('[data-undo]').forEach(b=>b.onclick=()=>undoCommit(b.dataset.undo));
-el.querySelectorAll('[data-oen]').forEach(c=>c.onchange=()=>{const[si,oi]=c.dataset.oen.split(':');S.scenarios.find(x=>x.id===si).objectives.find(o=>o.id===oi).enabled=c.checked;save();renderInspector();renderScens()});
+el.querySelectorAll('[data-oen]').forEach(c=>c.onchange=()=>{const[si,oi]=c.dataset.oen.split(':');S.scenarios.find(x=>x.id===si).objectives.find(o=>o.id===oi).enabled=c.checked;if(OD&&OD.scenarioId===si){const sc=S.scenarios.find(x=>x.id===si);if(sc){const keep={};(OD.pay||[]).forEach(w=>keep[w.oid]=w);OD.pay=scopedPay(sc,OD.brigadeId).map(w=>{const old=keep[w.oid];return old?{oid:w.oid,text:w.text,amount:old.amount,awarded:old.awarded}:w});OD.payScen=sc.id+':'+OD.brigadeId}}save();renderInspector();renderScens();renderOutcomes()});
 el.querySelectorAll('[data-opay]').forEach(c=>c.onchange=()=>{const[si,oi]=c.dataset.opay.split(':');S.scenarios.find(x=>x.id===si).objectives.find(o=>o.id===oi).payout=+c.value;save();renderInspector();renderScens()});
 el.querySelectorAll('[data-part]').forEach(c=>c.onchange=()=>{const[si,bi]=c.dataset.part.split(':');toggleParticipation(si,bi,c.checked)});
 el.querySelectorAll('[data-prole]').forEach(c=>c.onchange=()=>{const[si,bi]=c.dataset.prole.split(':');setSideRole(si,bi,c.value)});
