@@ -118,6 +118,9 @@ function eraTag(yr){const b=eraBounds();if(yr==null||isNaN(+yr)||!b)return '<spa
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{const from=(document.querySelector('.tab.active')||{}).dataset?document.querySelector('.tab.active').dataset.tab:'';document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('tab-'+b.dataset.tab).classList.add('active');if(b.dataset.tab==='predrop')renderPredropSel();if(b.dataset.tab==='outcomes')renderOutcomes();if(b.dataset.tab==='scenarios'&&(from==='predrop'||from==='outcomes')){const act=upcomingPredrop();if(act){S.selScenario=act.id;scenTab='review';save();renderScens()}}});
 // MODE (era lives on the Game Series card)
 function setMode(m){S.mode=m;save();document.getElementById('modeTW').classList.toggle('active',m==='TW');document.getElementById('modeAS').classList.toggle('active',m==='AS');renderAll()}
+const THEMES=['default','greenscreen','mono-green','amber'];
+function applyTheme(){const t=THEMES.includes(S.theme)?S.theme:'default';document.documentElement.setAttribute('data-theme',t);const s=document.getElementById('themeSel');if(s)s.value=t;return t}
+const themeSel=document.getElementById('themeSel');if(themeSel)themeSel.onchange=()=>{S.theme=themeSel.value;save();applyTheme();toast(`Display theme: ${themeSel.selectedOptions[0].text}`)}
 document.getElementById('modeTW').onclick=()=>setMode('TW');document.getElementById('modeAS').onclick=()=>setMode('AS');setMode(S.mode||'TW');
 // FULLSCREEN (mobile browsers): icon in the top bar; landscape lock by default, toggleable while fullscreen
 let rotLock=true;
@@ -945,7 +948,7 @@ S.dates.push(demoDate());save();renderAll();toast(`Demo appended - 3 brigades ad
 document.getElementById('wipeBtn').onclick=async()=>{if(await confirmDlg('Wipe all data? This cannot be undone.','Wipe all')){S={era:ERAS[2],mode:'TW',dates:[],brigades:[],scenarios:[],outcomes:[],selScenario:null,activePredrop:null};save();renderAll()}};
 document.getElementById('jsonBtn').onclick=()=>{const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='bt-backup.json';a.click()};
 document.getElementById('importFile').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{S=JSON.parse(r.result);save();renderAll()};r.readAsText(f)};
-function renderAll(){save();renderSeries();renderDates();renderBrigs();renderScens();renderOutcomes();refreshImportDates()}
+function renderAll(){save();applyTheme();renderSeries();renderDates();renderBrigs();renderScens();renderOutcomes();refreshImportDates()}
 function renderSeries(){const box=document.getElementById('seriesBox');if(!box)return;
 if(!Array.isArray(S.series)||!S.series.length){S.series=[{id:uid(),name:'Main Campaign',enemies:[],snap:snapOf(S)}];S.activeSeriesId=S.series[0].id}
 S.series.forEach(s=>{s.snap=s.snap||{};if(!s.snap.era)s.snap.era=S.era||ERAS[2]});

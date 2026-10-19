@@ -47,3 +47,49 @@ hr.secdiv{border:0;border-top:3px double var(--acc);margin:18px 0}
 .gb-up{color:var(--good);font-weight:700}
 .gb-dn{color:var(--bad);font-weight:700}
 footer{text-align:center;color:var(--mut);padding:18px;font-size:12px}
+/* ===== Display themes (Settings > Display Theme) ===== */
+html[data-theme=greenscreen]{--bg:#0a140e;--bg2:#112619;--card:#142e20;--line:#2c5c40;--acc2:#00ff88;--txt:#e9f7ee;--mut:#93bda0}
+html[data-theme=greenscreen] body{background:radial-gradient(1200px 600px at 20% -10%,#1d4d30,transparent),var(--bg)}
+html[data-theme=greenscreen] .topbar{background:linear-gradient(90deg,#0d2417,#163020)}
+html[data-theme=greenscreen] .tabs{background:#0c1f14}
+html[data-theme=greenscreen] .tab.active{background:linear-gradient(180deg,#20452f,#122a1a)}
+html[data-theme=greenscreen] .iconbtn,html[data-theme=greenscreen] .seg-btn{background:#0e2618}
+html[data-theme=greenscreen] select,html[data-theme=greenscreen] input{background:#0c2216}
+html[data-theme=greenscreen] .date-row,html[data-theme=greenscreen] .brig,html[data-theme=greenscreen] .scen{background:#0e2618}
+html[data-theme=greenscreen] .catbox,html[data-theme=greenscreen] [data-bpane]{background:#0b2114}
+html[data-theme=greenscreen] .btabbar .btn.small,html[data-theme=greenscreen] .btabbar .btn.small.on{background:#0b2114}
+html[data-theme=greenscreen] .foldertab{background:linear-gradient(180deg,#20452f,#0e2313)}
+html[data-theme=greenscreen] .calgrid .day{background:#0c2216}
+html[data-theme=greenscreen] .calgrid .day.future{background:#0c2a16;border-color:#1f7a4d}
+html[data-theme=greenscreen] .calgrid .day.upcomingday{background:#0a2a12}
+html[data-theme=greenscreen] .setupmap svg{background:#0d2e1a}
+html[data-theme=greenscreen] .dlg{background:linear-gradient(180deg,#1a3a28,#122a1c)}
+html[data-theme=greenscreen] input[type=range]::-webkit-slider-runnable-track{background:linear-gradient(180deg,#0c2216,#162e1f)}
+html[data-theme=greenscreen] input[type=range]::-moz-range-track{background:#10281a}
+/* Monochrome CRT themes: Olivetti 8088 (green phosphor) and Ambervision (amber phosphor) */
+html[data-theme=mono-green]{--bg:#020503;--bg2:#031007;--card:#041007;--line:#1e5c30;--acc:#5cff7a;--acc2:#33ff66;--txt:#33ff66;--mut:#1d9e48;--good:#33ff66;--bad:#33ff66}
+html[data-theme=amber]{--bg:#0b0601;--bg2:#140d02;--card:#160e02;--line:#6e4c14;--acc:#ffd166;--acc2:#ffb000;--txt:#ffb000;--mut:#a3761f;--good:#ffb000;--bad:#ffb000}
+html[data-theme=mono-green] body,html[data-theme=amber] body{background:var(--bg);font-family:'Courier New',Courier,ui-monospace,SFMono-Regular,monospace}
+html[data-theme=mono-green] body{text-shadow:0 0 6px #33ff6655}
+html[data-theme=amber] body{text-shadow:0 0 6px #ffb00055}
+html[data-theme=mono-green] body::after,html[data-theme=amber] body::after{content:'';position:fixed;inset:0;z-index:60;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px)}
+html[data-theme=mono-green] button,html[data-theme=mono-green] select,html[data-theme=mono-green] input,html[data-theme=amber] button,html[data-theme=amber] select,html[data-theme=amber] input{font-family:inherit}
+html[data-theme=mono-green] .brand h1,html[data-theme=mono-green] .tab,html[data-theme=mono-green] .btn,html[data-theme=mono-green] .seg-btn,html[data-theme=mono-green] th,html[data-theme=mono-green] .catbox h5,html[data-theme=mono-green] .caltitle,html[data-theme=mono-green] .foldertab,html[data-theme=mono-green] .scen h3,html[data-theme=amber] .brand h1,html[data-theme=amber] .tab,html[data-theme=amber] .btn,html[data-theme=amber] .seg-btn,html[data-theme=amber] th,html[data-theme=amber] .catbox h5,html[data-theme=amber] .caltitle,html[data-theme=amber] .foldertab,html[data-theme=amber] .scen h3{font-family:inherit}
+html[data-theme=mono-green] .topbar,html[data-theme=mono-green] .tabs,html[data-theme=amber] .topbar,html[data-theme=amber] .tabs{background:var(--bg)}
+html[data-theme=mono-green] .tab.active,html[data-theme=mono-green] .card,html[data-theme=mono-green] .foldertab,html[data-theme=mono-green] .dlg,html[data-theme=mono-green] .date-row,html[data-theme=mono-green] .brig,html[data-theme=mono-green] .scen,html[data-theme=amber] .tab.active,html[data-theme=amber] .card,html[data-theme=amber] .foldertab,html[data-theme=amber] .dlg,html[data-theme=amber] .date-row,html[data-theme=amber] .brig,html[data-theme=amber] .scen{background:var(--card);box-shadow:none}
+html[data-theme=mono-green] .catbox,html[data-theme=mono-green] [data-bpane],html[data-theme=mono-green] .btabbar .btn.small,html[data-theme=mono-green] .btabbar .btn.small.on,html[data-theme=mono-green] .calgrid .day,html[data-theme=amber] .catbox,html[data-theme=amber] [data-bpane],html[data-theme=amber] .btabbar .btn.small,html[data-theme=amber] .btabbar .btn.small.on,html[data-theme=amber] .calgrid .day{background:var(--bg)}
+html[data-theme=mono-green] .iconbtn,html[data-theme=mono-green] .seg-btn,html[data-theme=mono-green] select,html[data-theme=mono-green] input,html[data-theme=amber] .iconbtn,html[data-theme=amber] .seg-btn,html[data-theme=amber] select,html[data-theme=amber] input{background:var(--bg);color:var(--txt)}
+html[data-theme=mono-green] .btn,html[data-theme=amber] .btn{background:var(--bg);color:var(--txt);border-color:var(--acc)}
+html[data-theme=mono-green] .btn.glow,html[data-theme=amber] .btn.glow{background:var(--acc);color:#0a0a0a;border-color:var(--acc)}
+html[data-theme=mono-green] .btn.glow-red,html[data-theme=amber] .btn.glow-red{background:transparent;color:var(--acc);border:2px solid var(--acc);animation:none}
+html[data-theme=mono-green] .seg-btn.active,html[data-theme=amber] .seg-btn.active{background:var(--acc);color:#0a0a0a}
+html[data-theme=mono-green] .pill,html[data-theme=amber] .pill{background:transparent;color:var(--txt);border-color:var(--line);animation:none}
+html[data-theme=mono-green] .medbay,html[data-theme=amber] .medbay{color:var(--acc)}
+html[data-theme=mono-green] .calgrid .day.past,html[data-theme=mono-green] .calgrid .day.future,html[data-theme=mono-green] .calgrid .day.upcomingday,html[data-theme=amber] .calgrid .day.past,html[data-theme=amber] .calgrid .day.future,html[data-theme=amber] .calgrid .day.upcomingday{background:var(--bg)}
+html[data-theme=mono-green] .setupmap svg,html[data-theme=amber] .setupmap svg{background:#000;border:1px solid var(--line)}
+html[data-theme=mono-green] .mech-ico,html[data-theme=amber] .mech-ico{filter:grayscale(1) brightness(1.35)}
+html[data-theme=mono-green] input[type=range]::-webkit-slider-runnable-track,html[data-theme=amber] input[type=range]::-webkit-slider-runnable-track{background:var(--bg)}
+html[data-theme=mono-green] input[type=range]::-webkit-slider-thumb,html[data-theme=amber] input[type=range]::-webkit-slider-thumb{background:var(--acc);border-color:var(--acc);box-shadow:0 0 10px var(--acc)}
+html[data-theme=mono-green] input[type=range]::-moz-range-track,html[data-theme=amber] input[type=range]::-moz-range-track{background:var(--bg)}
+html[data-theme=mono-green] input[type=range]::-moz-range-progress,html[data-theme=amber] input[type=range]::-moz-range-progress{background:var(--acc)}
+html[data-theme=mono-green] input[type=range]::-moz-range-thumb,html[data-theme=amber] input[type=range]::-moz-range-thumb{background:var(--acc);border-color:var(--acc)}
