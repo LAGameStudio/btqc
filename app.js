@@ -502,7 +502,7 @@ const glink=`<b>${up.date}</b>${up.note?' — '+escH(up.note):''}`;
 const s=upcomingPredrop();
 if(!s){el.innerHTML=`<p><b>Game Date:</b> ${glink} <span class="pill upcoming">UPCOMING</span></p><p class="hint">No contract signed for the upcoming game yet — visit the Scenarios section to commit and sign one.</p><button class="btn glow" id="predropGoScen">✦ Go to Scenarios</button>`;
 const go=el.querySelector('#predropGoScen');if(go)go.onclick=()=>{const t=document.querySelector('.tab[data-tab="scenarios"]');if(t)t.click();scenTab='select';renderScens()};return}
-el.innerHTML=`<p><b>Game Date:</b> ${glink} <span class="pill upcoming">UPCOMING</span></p><p><b>Signed contract:</b> ${escH(s.title)} <button class="btn small" id="predropReview">Review Contract</button></p>${setupMapH(s)}`;
+el.innerHTML=`<p><b>Game Date:</b> ${glink} <span class="pill upcoming">UPCOMING</span></p><p><b>Signed contract:</b> ${escH(s.title)} <button class="btn small" id="predropReview">Review Contract</button></p>${cardBackstory(s)}${setupMapH(s)}`;
 const rv=el.querySelector('#predropReview');if(rv)rv.onclick=()=>{S.selScenario=s.id;scenTab='review';save();const t=document.querySelector('.tab[data-tab="scenarios"]');if(t)t.click();renderScens()}}
 function renderPredrop(){const el=document.getElementById('predropOut');const s=S.scenarios.find(x=>x.id===S.activePredrop);if(!s){el.innerHTML='<p class="hint">No signed contract for the upcoming game.</p>';return}
 const M=S.mode||'TW'; // Pre-Drop is a planning view: it always follows the top-bar mode
