@@ -52,12 +52,14 @@ if(!Array.isArray(b.log))b.log=[];
 if(b.retired!==true)b.retired=false;
 if(!b.importedFrom){const m=(b.log||[]).map(e=>e.msg||'').join('\n').match(/Imported from series '([^']+)'/);if(m)b.importedFrom={seriesId:((S.series||[]).find(s=>s.name===m[1])||{}).id||null,seriesName:m[1]}}
 delete b.cbills});
+if(S.brigades.some(b=>b.retired))stripRetiredFromScenarios('Retired brigade removed from this contract');
 function snapOf(S){return JSON.parse(JSON.stringify({era:S.era,dates:S.dates,brigades:S.brigades,scenarios:S.scenarios,outcomes:S.outcomes,selScenario:S.selScenario,activePredrop:S.activePredrop}))}
 function applySnap(s){S.era=s.era||ERAS[2];S.dates=s.dates||[];S.brigades=s.brigades||[];S.scenarios=s.scenarios||[];S.outcomes=s.outcomes||[];S.selScenario=s.selScenario||null;S.activePredrop=s.activePredrop||null}
 function curSeries(){if(!Array.isArray(S.series)||!S.series.length)return null;return S.series.find(x=>x.id===S.activeSeriesId)||S.series[0]}
-function switchSeries(id){if(id===S.activeSeriesId)return;const cur=curSeries();if(cur)cur.snap=snapOf(S);const t=S.series.find(x=>x.id===id);if(!t||!t.snap)return;applySnap(JSON.parse(JSON.stringify(t.snap)));S.activeSeriesId=id;OD=null;editingOutcomeId=null;calView={y:null,m:null};save();renderAll();toast(`Switched to series '${t.name}' — full dataset swapped`)}
+function switchSeries(id){if(id===S.activeSeriesId)return;const cur=curSeries();if(cur)cur.snap=snapOf(S);const t=S.series.find(x=>x.id===id);if(!t||!t.snap)return;applySnap(JSON.parse(JSON.stringify(t.snap)));stripRetiredFromScenarios('Retired brigade removed from this contract');S.activeSeriesId=id;OD=null;editingOutcomeId=null;calView={y:null,m:null};save();renderAll();toast(`Switched to series '${t.name}' — full dataset swapped`)}
 if(!Array.isArray(S.series)||!S.series.length){S.series=[{id:uid(),name:'Main Campaign',enemies:[],snap:snapOf(S)}];S.activeSeriesId=S.series[0].id}
 function liveBrigs(){return S.brigades.filter(b=>!b.retired)}
+function stripRetiredFromScenarios(why){let n=0;const t=todayStr();S.scenarios.forEach(s=>{const g=S.dates.find(x=>x.id===s.gameDateId);if(g&&g.date<t)return;const dead=(s.sides||[]).filter(sd=>{const b=S.brigades.find(x=>x.id===sd.brigadeId);return b&&b.retired});if(!dead.length)return;const ids=dead.map(sd=>sd.id);s.sides=(s.sides||[]).filter(sd=>!ids.includes(sd.id));s.objectives=(s.objectives||[]).filter(o=>!ids.includes(o.sideId));refreshBackstory(s);clog(s,why||'Retired brigade removed from this contract');n++});return n}
 // Tallied ledger balance (ignored lines excluded) — the brigade's C-Bills account.
 function ledgerTotal(b){return (b.ledger||[]).filter(l=>!l.ignored).reduce((s,l)=>s+(+l.amount||0),0)}
 function blog(b,msg){if(!b)return;b.log=b.log||[];b.log.push({id:uid(),t:new Date().toISOString(),msg:String(msg)});if(b.log.length>300)b.log=b.log.slice(-300)}
@@ -210,7 +212,7 @@ el.appendChild(d)});
 // wire
 el.querySelectorAll('[data-btab]').forEach(x=>x.onclick=()=>{const[bi,t]=x.dataset.btab.split(':');brigTab[bi]=t;save();renderBrigs()});
 el.querySelectorAll('[data-cat]').forEach(x=>x.onclick=()=>{const id=x.dataset.cat;catOpen.has(id)?catOpen.delete(id):catOpen.add(id);renderBrigs()});
-el.querySelectorAll('[data-retire]').forEach(x=>x.onclick=async()=>{const b=S.brigades.find(v=>v.id===x.dataset.retire);if(!b)return;if(!await confirmDlg(`Retire brigade '${b.name}'? It leaves active play and moves to the Retired list (you can restore it later).`,'Retire'))return;b.retired=true;blog(b,'Brigade retired');save();renderAll();toast(`'${b.name}' retired`)});
+el.querySelectorAll('[data-retire]').forEach(x=>x.onclick=async()=>{const b=S.brigades.find(v=>v.id===x.dataset.retire);if(!b)return;if(!await confirmDlg(`Retire brigade '${b.name}'? It leaves active play and all present and future contracts, and moves to the Retired list (you can restore it later).`,'Retire'))return;b.retired=true;blog(b,'Brigade retired');const n=stripRetiredFromScenarios(`'${b.name}' retired — removed from this contract`);save();renderAll();toast(`'${b.name}' retired${n?` — removed from ${n} contract${n===1?'':'s'}`:''}`)});
 el.querySelectorAll('[data-sync]').forEach(x=>x.onclick=async()=>{
 const b=S.brigades.find(v=>v.id===x.dataset.sync);if(!b||!b.importedFrom)return;
 const sid=await syncDlg(b);if(!sid)return;
