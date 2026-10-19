@@ -516,7 +516,7 @@ const gbl=el.querySelector('[data-gblegend]');if(gbl)gbl.onchange=()=>{S.gbLegen
 // mech salvage into the assigned brigade's inventory, pilot deaths (removed
 // from roster) and gunnery ticks. Edit/Delete reverses the old application.
 function ocNew(){const up=upcomingGameId();const ups=upcomingPredrop();return {id:uid(),gameDateId:up||(S.dates[0]||{}).id||'',scenarioId:ups?ups.id:'',brigadeId:(liveBrigs()[0]||{}).id||'',failed:false,note:'',rows:[],pay:[],payScen:'',salvage:[],revise:false}}
-function scopedPay(sc,bid){return (sc?sc.objectives:[]).filter(o=>o.by===bid).map(o=>({oid:o.id,text:o.text,amount:o.payout,awarded:o.enabled}))}
+function scopedPay(sc,bid){return (sc?sc.objectives:[]).filter(o=>o.by===bid&&o.enabled).map(o=>({oid:o.id,text:o.text,amount:o.payout,awarded:o.enabled}))}
 function pullRows(bid,silent){if(!OD)return 0;const b=S.brigades.find(x=>x.id===bid);if(!b){OD.rows=[];return 0}
 OD.rows=(b.active||[]).filter(a=>a.on&&a.mech).map(a=>{const m=b.inventory.find(x=>x.id===a.mech);const p=b.roster.find(x=>x.id===a.pilot);return {rid:uid(),pilotId:p?p.id:'',name:p?p.n:'— (no pilot)',g:p?p.g:4,p:p?p.p:5,mechId:m?m.id:'',mechName:m?m.n:'—',dmg:m?Math.max(0,Math.min(100,+m.dmg||0)):0,dead:false,hits:0,ejected:false,ticks:0}});
 const sc=S.scenarios.find(x=>x.id===OD.scenarioId);OD.pay=sc?scopedPay(sc,bid):[];OD.payScen=sc?sc.id+':'+bid:'';OD.pulledFor=bid+':'+OD.scenarioId;save();
