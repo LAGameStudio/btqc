@@ -574,15 +574,15 @@ const payBy={},payOrder=[];
 s.objectives.forEach(o=>{const bb=S.brigades.find(x=>x.id===o.by);const nm=bb?bb.name:'Unassigned';if(!payBy[nm]){payBy[nm]={en:0,enN:0,n:0};payOrder.push(nm)}const t=payBy[nm];t.n++;if(o.enabled){t.en+=(+o.payout||0);t.enN++}});
 const stakeH=payOrder.map(nm=>{const t=payBy[nm];return `<tr><td colspan=3 style="text-align:right"><b>Stakes \u2014 ${nm}</b> <span class="hint">(${t.enN}/${t.n} enabled)</span></td><td><b>${t.en.toLocaleString()}</b></td></tr>`}).join('')+(payOrder.length>1?`<tr><td colspan=3 style="text-align:right"><b>Total stakes</b></td><td><b>${payOrder.reduce((x,nm)=>x+payBy[nm].en,0).toLocaleString()}</b></td></tr>`:'');
 el.innerHTML=`<h3>${s.title} — ${M==='TW'?'Total Warfare (BV)':'Alpha Strike (PV)'}${DM!==M?` <span class="hint">(date recorded as ${DM==='TW'?'Total Warfare':'Alpha Strike'})</span>`:''}</h3>
-<p><b>Setup:</b> Map ${s.map.size} at ${s.map.loc} (${s.map.ter}). ${s.map.cond}. OpFor: ${s.opfor}. GM assets: Sensor post (BV ${assetBV}), convoy trucks x2 — place per objectives before first turn.</p>
+<p><b>Setup:</b> Map ${s.map.size} at ${s.map.loc} (${s.map.ter}). ${s.map.cond}. OpFor: ${s.opfor}. GM assets: Sensor post (BV ${assetBV}), convoy trucks x2 — place per objectives before first turn.</p>\n<hr class="secdiv">
+<h4>Payouts</h4><table><tr><th>Objective</th><th>By</th><th>C-Bills</th></tr>${(()=>{const _pc={};return s.objectives.filter(o=>o.enabled).map(o=>{const k=o.by||'';_pc[k]=(_pc[k]||0)+1;return `<tr><td><b>${payLetter(_pc[k]-1)})</b> ${o.text}</td><td>${(S.brigades.find(b=>b.id===o.by)||{}).name||'—'}</td><td>${o.payout.toLocaleString()}</td></tr>`}).join('')})()}${stakeH}</table>\n
 <table><tr><th>Brigade</th><th></th><th>Mech</th><th>Pilot (recorded)</th><th>Base</th><th>Skill mod</th><th>Scenario mod</th><th>Deployed (${M==='TW'?'BV':'PV'})</th></tr>${rows}</table>
 <p><b>Force total: ${grand.toLocaleString()} ${M==='TW'?'BV':'PV'}</b> (base + pilot skill + transparent OpFor/condition bump). Base skills unchanged on roster — modifiers apply to this game only.</p>
 <hr class="secdiv">
 ${eqH}
 ${sideH?'<hr class="secdiv">':''}${sideH}
 ${gbMain?`<p><b>Adjusted force total: ${sideGroups.reduce((x,g)=>x+(g.eq||g.tot),0).toLocaleString()} ${unit}</b> (battlefield total if every GM action above is applied)</p>`:''}
-<hr class="secdiv">
-<h4>Payouts</h4><table><tr><th>Objective</th><th>By</th><th>C-Bills</th></tr>${(()=>{const _pc={};return s.objectives.filter(o=>o.enabled).map(o=>{const k=o.by||'';_pc[k]=(_pc[k]||0)+1;return `<tr><td><b>${payLetter(_pc[k]-1)})</b> ${o.text}</td><td>${(S.brigades.find(b=>b.id===o.by)||{}).name||'—'}</td><td>${o.payout.toLocaleString()}</td></tr>`}).join('')})()}${stakeH}</table>`;
+`;
 const gbm=el.querySelector('[data-gbmode]');if(gbm)gbm.onchange=()=>{S.gbMode=gbm.value;save();renderPredrop()};
 const gbt=el.querySelector('[data-gbtol]');if(gbt){gbt.oninput=()=>{S.gbTol=+gbt.value};gbt.onchange=()=>{S.gbTol=+gbt.value;save();renderPredrop()}}
 const gbnt=el.querySelector('[data-gbnotrim]');if(gbnt)gbnt.onchange=()=>{S.gbNoTrim=gbnt.checked;if(S.gbMode==='notrim')S.gbMode='all';save();renderPredrop()};
