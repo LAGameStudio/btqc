@@ -462,7 +462,7 @@ let g='';
 for(let i=1;i<10;i++){g+=`<line x1="${W*i/10}" y1="0" x2="${W*i/10}" y2="${H}" stroke="rgba(0,229,255,.12)" stroke-width="1"/>`;g+=`<line x1="0" y1="${H*i/10}" x2="${W}" y2="${H*i/10}" stroke="rgba(0,229,255,.12)" stroke-width="1"/>`}
 let bands='',marks='',lab=[];
 const edgeGroups={N:[],S:[],E:[],W:[],C:[],ANY:[]};
-sides.forEach(sd=>{(edgeGroups[sd.edge]||edgeGroups.ANY).push(sd)});
+sides.forEach(sd=>{if(sd.role==='Raider'&&sd.edge==='ANY'){edgeGroups.W.push(sd);edgeGroups.E.push(sd);return}(edgeGroups[sd.edge]||edgeGroups.ANY).push(sd)});
 const band=(x,y,w,h,sds,horiz)=>{sds.forEach((sd,i)=>{const bx=x,bw=w,by=horiz?y+i*h/sds.length:y+i*20,bh=horiz?h/sds.length:20;
 bands+=`<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="${col(sd.role)}" opacity=".18" stroke="${col(sd.role)}" stroke-width="1.5"/>`;
 let bt0=(sd.edge==='C'?'IN PLACE':sd.edge==='ANY'?'LATE ENTRY':sd.edge)+' · '+sd.role+(bw>=120?' — '+sd.name:'');let bt=bt0,bs=horiz?11:9;const avail=bw-14;if(bt0.length*bs*0.55>avail){bs=Math.max(4,Math.floor(avail/(bt0.length*0.55)*10)/10);const fit2=Math.max(8,Math.floor(avail/(bs*0.55)));bt=bt0.length>fit2?bt0.slice(0,fit2-1)+'…':bt0}
