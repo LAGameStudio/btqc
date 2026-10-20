@@ -881,7 +881,7 @@ const ni=H.findIndex(h=>h==='name'||h.includes('chassis'));let vi=H.findIndex(h=
 const bi=H.findIndex(h=>/\bbv\b/.test(h));const pvi=H.findIndex(h=>/\bpv\b/.test(h));
 const ci=H.findIndex(h=>h.includes('c-bill')||h.includes('c bill')||h.includes('cost')||h.includes('value'));
 if(ni<0||vi<0){skipped+=mg.length-mh-1}else{
-for(const r of mg.slice(mh+1)){const nm=(r[ni]||'').trim(),va=(r[vi]||'').trim();
+for(const r of mg.slice(mh+1)){if(r.some(x=>/^interested:?$/i.test((x||'').trim())))break;const nm=(r[ni]||'').trim(),va=(r[vi]||'').trim();
 const nonEmpty=r.filter(x=>x!=='').length;
 if(!nm||!va){if(nonEmpty>0)skipped++;continue}
 const cat=odsCatalogMatch(nm,va);
