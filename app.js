@@ -463,14 +463,14 @@ for(let i=1;i<10;i++){g+=`<line x1="${W*i/10}" y1="0" x2="${W*i/10}" y2="${H}" s
 let bands='',marks='',lab=[];
 const edgeGroups={N:[],S:[],E:[],W:[],C:[],ANY:[]};
 sides.forEach(sd=>{if(sd.role==='Raider'&&sd.edge==='ANY'){edgeGroups.W.push(sd);edgeGroups.E.push(sd);return}(edgeGroups[sd.edge]||edgeGroups.ANY).push(sd)});
-const band=(x,y,w,h,sds,horiz)=>{sds.forEach((sd,i)=>{const bx=x,bw=w,by=horiz?y+i*h/sds.length:y+i*20,bh=horiz?h/sds.length:20;
+const band=(x,y,w,h,sds,horiz,rot)=>{sds.forEach((sd,i)=>{const bx=x,bw=w,by=y+i*h/sds.length,bh=h/sds.length;
 bands+=`<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="${col(sd.role)}" opacity=".18" stroke="${col(sd.role)}" stroke-width="1.5"/>`;
-let bt0=(sd.edge==='C'?'IN PLACE':sd.edge==='ANY'?'LATE ENTRY':sd.edge)+' · '+sd.role+(bw>=120?' — '+sd.name:'');let bt=bt0,bs=horiz?11:9;const avail=bw-14;if(bt0.length*bs*0.55>avail){bs=Math.max(4,Math.floor(avail/(bt0.length*0.55)*10)/10);const fit2=Math.max(8,Math.floor(avail/(bs*0.55)));bt=bt0.length>fit2?bt0.slice(0,fit2-1)+'…':bt0}
-mapLabel(lab,bx+6,by+bh/2+4,bt,col(sd.role),bs,'start',0,true,1,true)})};
+let bt0=(sd.edge==='C'?'IN PLACE':sd.edge==='ANY'?'LATE ENTRY':sd.edge)+' · '+sd.role+(bw>=120?' — '+sd.name:'');let bt=bt0,bs=horiz?11:9;const avail=(horiz?bw:bh)-14;if(bt0.length*bs*0.55>avail){bs=Math.max(4,Math.floor(avail/(bt0.length*0.55)*10)/10);const fit2=Math.max(8,Math.floor(avail/(bs*0.55)));bt=bt0.length>fit2?bt0.slice(0,fit2-1)+'…':bt0}
+if(horiz){mapLabel(lab,bx+6,by+bh/2+4,bt,col(sd.role),bs,'start',0,true,1,true)}else{const cx=bx+bw/2,cy=by+bh/2;bands+=`<text x="${Math.round(cx)}" y="${Math.round(cy)}" font-size="${bs}" fill="${col(sd.role)}" text-anchor="middle" dominant-baseline="middle" transform="rotate(${rot||0} ${Math.round(cx)} ${Math.round(cy)})">${escH(bt)}</text>`}})};
 if(edgeGroups.N.length)band(0,0,W,22*edgeGroups.N.length,edgeGroups.N,true);
 if(edgeGroups.S.length)band(0,H-22*edgeGroups.S.length,W,22*edgeGroups.S.length,edgeGroups.S,true);
-if(edgeGroups.E.length)band(W-86,0,86,H,edgeGroups.E,false);
-if(edgeGroups.W.length)band(0,0,86,H,edgeGroups.W,false);
+if(edgeGroups.E.length)band(W-86,0,86,H,edgeGroups.E,false,90);
+if(edgeGroups.W.length)band(0,0,86,H,edgeGroups.W,false,-90);
 if(edgeGroups.C.length){const cw=Math.min(200,24*8),ch=20*edgeGroups.C.length+8;band(W/2-cw/2,H/2-ch/2,cw,ch,edgeGroups.C,true)}
 if(edgeGroups.ANY.length){const ah=20*edgeGroups.ANY.length+8;band(W-190,30,160,ah,edgeGroups.ANY,true)}
 const j=(seed,span)=>h32(s.id+seed)%span;
